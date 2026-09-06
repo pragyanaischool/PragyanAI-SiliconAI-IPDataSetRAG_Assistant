@@ -11,7 +11,15 @@ import wikipedia
 
 from langchain_core.documents import Document
 from utils.vector_store import initialize_vector_persistence, rebuild_and_retain_vector_store
-from utils.database import init_db, db_add_ip, db_add_document, db_remove_document, db_get_all_groups_and_ips, db_get_file_registry
+from utils.database import (
+    init_db, 
+    db_add_ip, 
+    db_add_document, 
+    db_remove_document, 
+    db_get_all_groups_and_ips, 
+    db_get_file_registry,
+    db_get_document_counts
+)
 
 def download_pdf_from_url(url: str, save_path: str) -> bool:
     """Downloads a public PDF document directly from a web URL."""
@@ -102,23 +110,25 @@ def render():
     active_group = st.session_state.ip_groups.get(active_ip, "General")
     st.markdown(f"### ⚙️ Managing Knowledge Base for: `{active_ip}` (Family Group: *{active_group}*)")
 
-    # Fetch document registry from SQLite backend
+    # Fetch document registry and file counts from SQLite backend
     registry = db_get_file_registry(active_ip)
+    doc_counts = db_get_document_counts()
+    total_files_for_ip = doc_counts.get(active_ip, 0)
 
     # ==========================================
-    # SECTION 2: VIEW ADDED DOCUMENTS & BRIEFS
+    # SECTION 2: VIEW ADDED DOCUMENTS & DETAILS
     # ==========================================
     st.markdown("---")
-    st.subheader("📋 Document Database & Brief Overview")
+    st.subheader("📋 Document Database & Stored Details (SQLite Backed)")
     
     has_vector_store = active_ip in st.session_state.ip_databases
     if has_vector_store:
         st.success(f"✅ FAISS CPU Vector Store active with `{len(st.session_state.ip_raw_docs.get(active_ip, []))}` embedded chunks.")
     else:
-        st.warning("⚠️ FAISS vector store is empty. Ingest documents below to index vectors.")
+        st.warning("⚠️ FAISS vector store memory is empty. If files are listed in SQLite below, re-index or add them to rebuild vectors.")
 
     if registry:
-        st.write(f"Total active documents/sources indexed: **{len(registry)}**")
+        st.write(f"Total active documents/sources indexed under Group **[{active_group}]** / IP **`{active_ip}`**: **{total_files_for_ip}** file(s)")
         
         for source_name, meta in list(registry.items()):
             with st.expander(f"📄 [{meta['type']}] {source_name} — ({meta['pages']} pages/segments)"):
@@ -130,7 +140,7 @@ def render():
                     st.write(f"**Total Pages / Sections:** `{meta['pages']}`")
                     st.write(f"**Source Identifier:** `{source_name}`")
                 
-                st.markdown("**Key Topics / Brief Overview:**")
+                st.markdown("**Stored Metadata & Brief Overview (Retained in SQLite):**")
                 st.info(meta['brief'])
 
                 # Option to remove specific document from SQLite and FAISS
@@ -179,6 +189,11 @@ def render():
                         st.session_state.ip_raw_docs[active_ip] = []
 
                     for file in uploaded_files:
+                        # Check if already stored in SQLite database to prevent duplicate processing
+                        if file.name in registry:
+                            st.info(f"ℹ️ '{file.name}' is already registered in SQLite for `{active_ip}`. Skipping re-processing.")
+                            continue
+
                         file_path = os.path.join("temp_ip_data", file.name)
                         with open(file_path, "wb") as f:
                             f.write(file.getbuffer())
@@ -259,13 +274,16 @@ def render():
                         brief_summary = full_extracted_text[:400].replace("\n", " ") + "..." if len(full_extracted_text) > 400 else full_extracted_text
                         brief_text = f"Group: {active_group}. Excerpt: {brief_summary}"
                         
-                        # Save document record to SQLite database
+                        # Save document record persistently to SQLite database
                         db_add_document(active_ip, file.name, doc_type, file_page_count, brief_text)
 
-                    st.session_state.ip_raw_docs[active_ip].extend(new_docs)
-                    rebuild_and_retain_vector_store(active_ip)
-                    st.success(f"Successfully processed local files, saved to SQLite, and indexed in FAISS CPU for `{active_ip}`!")
-                    st.rerun()
+                    if new_docs:
+                        st.session_state.ip_raw_docs[active_ip].extend(new_docs)
+                        rebuild_and_retain_vector_store(active_ip)
+                        st.success(f"Successfully processed local files, saved metadata to SQLite, and indexed in FAISS CPU for `{active_ip}`!")
+                        st.rerun()
+                    else:
+                        st.info("No new files were processed (all uploaded files were already registered in SQLite).")
             else:
                 st.warning("Please choose one or more files first.")
 
@@ -275,36 +293,39 @@ def render():
         pdf_url = st.text_input("Direct PDF Web Link", placeholder="https://example.com/datasheets/axi_stream_spec.pdf", key="url_input_new")
         if st.button("Download & Save to SQLite", key="btn_url_download_new"):
             if pdf_url.strip():
-                with st.spinner("Downloading, parsing, saving to SQLite, and embedding vectors..."):
-                    raw_filename = pdf_url.split("/")[-1].split("?")[0]
-                    if not raw_filename.lower().endswith(".pdf"):
-                        raw_filename = "downloaded_spec.pdf"
-                    target_path = os.path.join("temp_ip_data", raw_filename)
+                if pdf_url in registry:
+                    st.info(f"ℹ️ URL '{pdf_url}' is already registered in SQLite.")
+                else:
+                    with st.spinner("Downloading, parsing, saving to SQLite, and embedding vectors..."):
+                        raw_filename = pdf_url.split("/")[-1].split("?")[0]
+                        if not raw_filename.lower().endswith(".pdf"):
+                            raw_filename = "downloaded_spec.pdf"
+                        target_path = os.path.join("temp_ip_data", raw_filename)
 
-                    if download_pdf_from_url(pdf_url.strip(), target_path):
-                        if active_ip not in st.session_state.ip_raw_docs:
-                            st.session_state.ip_raw_docs[active_ip] = []
+                        if download_pdf_from_url(pdf_url.strip(), target_path):
+                            if active_ip not in st.session_state.ip_raw_docs:
+                                st.session_state.ip_raw_docs[active_ip] = []
 
-                        full_text = ""
-                        with fitz.open(target_path) as doc:
-                            page_count = len(doc)
-                            for page_num, page in enumerate(doc):
-                                text = page.get_text()
-                                if text.strip():
-                                    full_text += text + "\n"
-                                    new_docs.append(Document(
-                                        page_content=text,
-                                        metadata={"source": pdf_url, "page": page_num + 1, "ip": active_ip, "group": active_group, "type": "Remote PDF Spec"}
-                                    ))
-                        
-                        brief = full_text[:400].replace("\n", " ") + "..."
-                        brief_text = f"Remote PDF document. Excerpt: {brief}"
-                        
-                        db_add_document(active_ip, pdf_url, "Remote PDF Spec", page_count, brief_text)
-                        st.session_state.ip_raw_docs[active_ip].extend(new_docs)
-                        rebuild_and_retain_vector_store(active_ip)
-                        st.success("Remote PDF saved to SQLite and indexed in FAISS CPU successfully!")
-                        st.rerun()
+                            full_text = ""
+                            with fitz.open(target_path) as doc:
+                                page_count = len(doc)
+                                for page_num, page in enumerate(doc):
+                                    text = page.get_text()
+                                    if text.strip():
+                                        full_text += text + "\n"
+                                        new_docs.append(Document(
+                                            page_content=text,
+                                            metadata={"source": pdf_url, "page": page_num + 1, "ip": active_ip, "group": active_group, "type": "Remote PDF Spec"}
+                                        ))
+                            
+                            brief = full_text[:400].replace("\n", " ") + "..."
+                            brief_text = f"Remote PDF document. Excerpt: {brief}"
+                            
+                            db_add_document(active_ip, pdf_url, "Remote PDF Spec", page_count, brief_text)
+                            st.session_state.ip_raw_docs[active_ip].extend(new_docs)
+                            rebuild_and_retain_vector_store(active_ip)
+                            st.success("Remote PDF saved to SQLite and indexed in FAISS CPU successfully!")
+                            st.rerun()
             else:
                 st.warning("Please provide a valid PDF link.")
 
@@ -319,7 +340,7 @@ def render():
                 if active_ip not in st.session_state.ip_raw_docs:
                     st.session_state.ip_raw_docs[active_ip] = []
 
-                if web_url.strip():
+                if web_url.strip() and web_url.strip() not in registry:
                     page_text = scrape_web_page(web_url.strip())
                     if page_text:
                         new_docs.append(Document(
@@ -328,14 +349,15 @@ def render():
                         ))
                         db_add_document(active_ip, web_url.strip(), "Web Article", 1, f"Web article. Excerpt: {page_text[:300]}...")
                 
-                if wiki_query.strip():
+                wiki_key = f"Wikipedia: {wiki_query.strip()}"
+                if wiki_query.strip() and wiki_key not in registry:
                     try:
                         wiki_content = wikipedia.summary(wiki_query.strip(), sentences=12)
                         new_docs.append(Document(
                             page_content=wiki_content,
-                            metadata={"source": f"Wikipedia: {wiki_query.strip()}", "page": 1, "ip": active_ip, "group": active_group, "type": "Wikipedia Entry"}
+                            metadata={"source": wiki_key, "page": 1, "ip": active_ip, "group": active_group, "type": "Wikipedia Entry"}
                         ))
-                        db_add_document(active_ip, f"Wikipedia: {wiki_query.strip()}", "Wikipedia Entry", 1, f"Wikipedia overview. Excerpt: {wiki_content[:300]}...")
+                        db_add_document(active_ip, wiki_key, "Wikipedia Entry", 1, f"Wikipedia overview. Excerpt: {wiki_content[:300]}...")
                     except Exception as e:
                         st.error(f"Wikipedia lookup error: {e}")
 
@@ -344,6 +366,8 @@ def render():
                     rebuild_and_retain_vector_store(active_ip)
                     st.success("Web & Wikipedia content saved to SQLite and indexed in FAISS CPU!")
                     st.rerun()
+                else:
+                    st.info("No new web or Wikipedia content was added (sources already exist in registry).")
 
     # TAB 4: ARXIV RESEARCH PAPERS
     with tab4:
@@ -359,17 +383,23 @@ def render():
 
                     client = arxiv.Search(query=arxiv_query.strip(), max_results=max_papers)
                     for paper in client.results():
-                        body = f"Title: {paper.title}\nAuthors: {', '.join([a.name for a in paper.authors])}\n\nAbstract:\n{paper.summary}"
                         source_label = f"ArXiv: {paper.title}"
+                        if source_label in registry:
+                            continue
+                        body = f"Title: {paper.title}\nAuthors: {', '.join([a.name for a in paper.authors])}\n\nAbstract:\n{paper.summary}"
                         new_docs.append(Document(
                             page_content=body,
                             metadata={"source": source_label, "page": 1, "ip": active_ip, "group": active_group, "type": "ArXiv Research Paper"}
                         ))
                         db_add_document(active_ip, source_label, "ArXiv Research Paper", 1, f"Paper by {', '.join([a.name for a in paper.authors])}. Abstract: {paper.summary[:300]}...")
                     
-                    st.session_state.ip_raw_docs[active_ip].extend(new_docs)
-                    rebuild_and_retain_vector_store(active_ip)
-                    st.success(f"Saved {len(new_docs)} papers to SQLite and indexed in FAISS CPU!")
-                    st.rerun()
+                    if new_docs:
+                        st.session_state.ip_raw_docs[active_ip].extend(new_docs)
+                        rebuild_and_retain_vector_store(active_ip)
+                        st.success(f"Saved new papers to SQLite and indexed in FAISS CPU!")
+                        st.rerun()
+                    else:
+                        st.info("All retrieved papers are already registered in SQLite.")
             else:
                 st.warning("Please provide a research query.")
+                
