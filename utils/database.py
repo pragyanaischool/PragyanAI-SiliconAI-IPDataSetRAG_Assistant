@@ -57,7 +57,7 @@ def db_add_ip(group_name: str, ip_name: str):
         conn.close()
 
 def db_add_document(ip_name: str, source_name: str, doc_type: str, page_count: int, brief: str):
-    """Records an added document into the SQLite database."""
+    """Records or updates an added document into the SQLite database."""
     init_db()
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -106,7 +106,7 @@ def db_get_all_groups_and_ips():
     return ip_groups
 
 def db_get_file_registry(ip_name: str):
-    """Retrieves all document records for a given IP model."""
+    """Retrieves all document records and metadata for a given IP model."""
     init_db()
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -122,3 +122,17 @@ def db_get_file_registry(ip_name: str):
             "brief": row["brief_summary"]
         }
     return registry
+
+def db_get_document_counts():
+    """Returns a dictionary mapping each IP model to its total count of registered documents."""
+    init_db()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT ip_name, COUNT(*) as doc_count FROM document_registry GROUP BY ip_name")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    counts = {}
+    for row in rows:
+        counts[row["ip_name"]] = row["doc_count"]
+    return counts
