@@ -4,7 +4,7 @@ from utils.database import db_get_all_groups_and_ips, db_get_file_registry
 
 def render():
     st.image("PragyanAI_Transperent.png")
-    st.title("⚖️ Cross-Spec & Version Comparison Engine")
+    st.title(" Cross-Spec & Version Comparison Engine")
     st.markdown("Select protocol groups and specific specification versions (backed by SQLite and FAISS) to perform side-by-side comparisons, analyze architecture evolution, and automatically list page-by-page change deltas.")
 
     # Synchronize group data from session state or SQLite database
@@ -124,7 +124,7 @@ Perform a rigorous, side-by-side comparative analysis between **{spec_a}** (Grou
             response = llm.invoke(comparison_prompt)
             
             st.markdown("---")
-            st.subheader(f"📊 Comparative Analysis & Page Delta Audit: {spec_a} vs. {spec_b}")
+            st.subheader(f" Comparative Analysis & Page Delta Audit: {spec_a} vs. {spec_b}")
             st.markdown(response.content)
 
             # Store references for audit on Page 3
