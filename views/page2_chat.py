@@ -1,6 +1,13 @@
 import streamlit as st
-import re
+import os
+import fitz  # PyMuPDF
+from docx import Document as DocxDocument
+from pptx import Presentation
+import pandas as pd
+from langchain_core.documents import Document
 from langchain_groq import ChatGroq
+from utils.database import db_get_all_groups_and_ips, db_get_file_registry
+from utils.vector_store import initialize_vector_persistence, rebuild_and_retain_vector_store
 
 # Dictionary of UI Translations for Multi-Language Interface Support
 UI_TEXTS = {
@@ -18,43 +25,43 @@ UI_TEXTS = {
         "citations": "Referenced Citations:"
     },
     "Japanese (日本語)": {
-        "title": " ページ 2: エキスパートマルチIPシリコン RAG アシスタント",
+        "title": "💬 ページ 2: エキスパートマルチIPシリコン RAG アシスタント",
         "subtitle": "IPモデルを選択し、推論モデルを選択し、質問を洗練させ、安全なシークレットを使用して仕様を照会します。",
         "select_ip": "アクティブな対象IPコア",
         "model_label": "推論モデルの選択",
         "input_placeholder": "仕様、レジスタ、またはRTLコードに関する技術的な質問をしてください...",
-        "refine_header": " AIクエリの洗練と検証",
+        "refine_header": "🔍 AIクエリの洗練と検証",
         "refine_prompt": "AIアーキテクトがクエリを洗練させました。お探しの内容ですか？",
-        "submit_refined": " 確認してクエリを実行",
-        "kg_header": " 動的IP知識グラフ",
+        "submit_refined": "🚀 確認してクエリを実行",
+        "kg_header": "🕸️ 動的IP知識グラフ",
         "kg_caption": "抽出されたリレーションシップとプロトコル階層の視覚化：",
-        "citations": " 参照された引用:"
+        "citations": "📚 参照された引用:"
     },
     "German (Deutsch)": {
-        "title": " Seite 2: Experten Multi-IP Silicon RAG Assistent",
+        "title": "💬 Seite 2: Experten Multi-IP Silicon RAG Assistent",
         "subtitle": "Wählen Sie IP-Modelle und das KI-Modell aus, um Spezifikationen mit sicheren Geheimnissen abzufragen.",
         "select_ip": "Aktive Ziel-IP-Kerne",
         "model_label": "KI-Modell auswählen",
         "input_placeholder": "Stellen Sie technische Fragen zu Spezifikationen, Registern oder RTL-Code...",
-        "refine_header": " KI-Abfrageverfeinerung & Validierung",
+        "refine_header": "🔍 KI-Abfrageverfeinerung & Validierung",
         "refine_prompt": "Unsere KI hat Ihre Anfrage verfeinert. Ist das wonach Sie suchen?",
-        "submit_refined": " Bestätigen & Ausführen",
-        "kg_header": " Dynamischer IP-Wissensgraph",
+        "submit_refined": "🚀 Bestätigen & Ausführen",
+        "kg_header": "🕸️ Dynamischer IP-Wissensgraph",
         "kg_caption": "Visualisierung von Entitäten und Protokollhierarchien:",
-        "citations": " Zitierte Quellen:"
+        "citations": "📚 Zitierte Quellen:"
     },
     "Mandarin (中文)": {
-        "title": " 页面 2: 专家多 IP 芯片 RAG 助手",
+        "title": "💬 页面 2: 专家多 IP 芯片 RAG 助手",
         "subtitle": "选择 IP 模型、推理模型、精炼您的问题，并使用安全的凭证查询规格说明。",
         "select_ip": "活动目标 IP 核心",
         "model_label": "选择推理模型",
         "input_placeholder": "询问关于规格、寄存器或 RTL 代码的技术问题...",
-        "refine_header": " AI 问题精炼与验证",
+        "refine_header": "🔍 AI 问题精炼与验证",
         "refine_prompt": "这是您要找的内容吗？如有需要可进行编辑并提交：",
-        "submit_refined": " 确认并执行查询",
-        "kg_header": " 动态 IP 知识图谱",
+        "submit_refined": "🚀 确认并执行查询",
+        "kg_header": "🕸️ 动态 IP 知识图谱",
         "kg_caption": "可视化从检索到的上下文中提取的实体关系：",
-        "citations": " 参考引用:"
+        "citations": "📚 参考引用:"
     }
 }
 
@@ -67,7 +74,6 @@ def clean_mermaid_code(raw_code: str) -> str:
 
     cleaned_lines = []
     for line in code.split("\n"):
-        # Replace symbols that break Mermaid rendering
         line = line.replace("⊕", "plus")
         line = line.replace("(", "_")
         line = line.replace(")", "_")
@@ -75,6 +81,74 @@ def clean_mermaid_code(raw_code: str) -> str:
         cleaned_lines.append(line)
         
     return "\n".join(cleaned_lines)
+
+def ensure_all_specs_loaded():
+    """Checks SQLite database and ensures all registered IPs have their raw documents and FAISS vector stores loaded into session state."""
+    initialize_vector_persistence()
+    if "ip_groups" not in st.session_state or not st.session_state.ip_groups:
+        st.session_state.ip_groups = db_get_all_groups_and_ips()
+
+    ip_groups = st.session_state.get("ip_groups", {})
+    if "ip_raw_docs" not in st.session_state:
+        st.session_state.ip_raw_docs = {}
+
+    for ip_name, group_name in ip_groups.items():
+        if ip_name not in st.session_state.ip_raw_docs or not st.session_state.ip_raw_docs[ip_name]:
+            registry = db_get_file_registry(ip_name)
+            loaded_docs = []
+            for source_name, meta in registry.items():
+                local_path = os.path.join("temp_ip_data", source_name)
+                if not os.path.exists(local_path):
+                    base_name = source_name.split("/")[-1].split("?")[0]
+                    local_path = os.path.join("temp_ip_data", base_name)
+                
+                if os.path.exists(local_path):
+                    doc_type = meta["type"]
+                    try:
+                        if "PDF" in doc_type or local_path.lower().endswith(".pdf"):
+                            with fitz.open(local_path) as pdf:
+                                for p_idx, page in enumerate(pdf):
+                                    text = page.get_text()
+                                    if text.strip():
+                                        loaded_docs.append(Document(
+                                            page_content=text,
+                                            metadata={"source": source_name, "page": p_idx + 1, "ip": ip_name, "group": group_name, "type": doc_type}
+                                        ))
+                        elif "Word" in doc_type or local_path.lower().endswith(".docx"):
+                            doc_obj = DocxDocument(local_path)
+                            text = "\n".join([p.text for p in doc_obj.paragraphs if p.text.strip()])
+                            loaded_docs.append(Document(
+                                page_content=text,
+                                metadata={"source": source_name, "page": 1, "ip": ip_name, "group": group_name, "type": doc_type}
+                            ))
+                        elif "Presentation" in doc_type or local_path.lower().endswith(".pptx"):
+                            prs = Presentation(local_path)
+                            for s_idx, slide in enumerate(prs.slides):
+                                s_text = ""
+                                for shape in slide.shapes:
+                                    if shape.has_text_frame:
+                                        for p in shape.text_frame.paragraphs:
+                                            s_text += p.text + "\n"
+                                if s_text.strip():
+                                    loaded_docs.append(Document(
+                                        page_content=s_text,
+                                        metadata={"source": source_name, "page": s_idx + 1, "ip": ip_name, "group": group_name, "type": doc_type}
+                                    ))
+                        else:
+                            with open(local_path, "r", encoding="utf-8", errors="ignore") as f:
+                                text = f.read()
+                            loaded_docs.append(Document(
+                                page_content=text,
+                                metadata={"source": source_name, "page": 1, "ip": ip_name, "group": group_name, "type": doc_type}
+                            ))
+                    except Exception as e:
+                        print(f"Error loading cache for {source_name}: {e}")
+
+            st.session_state.ip_raw_docs[ip_name] = loaded_docs
+
+        # Rebuild FAISS index if missing
+        if ip_name not in st.session_state.ip_databases and st.session_state.ip_raw_docs.get(ip_name):
+            rebuild_and_retain_vector_store(ip_name)
 
 def render():
     selected_lang = st.sidebar.selectbox("1. Select Language / 言語 / Sprache", list(UI_TEXTS.keys()), index=0)
@@ -92,7 +166,6 @@ def render():
         "groq/compound"
     ]
     
-    # Safely load default model from st.secrets if available
     default_model = "openai/gpt-oss-120b"
     try:
         secret_model = st.secrets.get("MODEL_NAME", None)
@@ -104,7 +177,7 @@ def render():
     selected_model_name = st.sidebar.selectbox(t["model_label"], available_models, index=available_models.index(default_model))
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### Custom Extraction Studio")
+    st.sidebar.markdown("### 🎛️ Custom Extraction Studio")
     custom_extraction_mode = st.sidebar.selectbox(
         "Extraction Profile", 
         ["Standard Silicon Architect", "Register Map (JSON/Table)", "UVM Testbench Generator", "Timing & Clock Domain Constraints", "Custom Instructions"]
@@ -129,6 +202,9 @@ def render():
     st.title(t["title"])
     st.markdown(t["subtitle"])
 
+    # Automatically load any stored specs from SQLite into session state and FAISS
+    ensure_all_specs_loaded()
+
     if "ip_databases" not in st.session_state or not st.session_state.ip_databases:
         st.warning("⚠️ No IP models found. Navigate to **Ingestion & IP Management** to register an IP first.")
         return
@@ -140,14 +216,12 @@ def render():
         st.info("💡 Please select at least one IP model to begin.")
         return
 
-    # Safely load Groq credentials from st.secrets
     try:
         groq_api_key = st.secrets["GROQ_API_KEY"]
     except Exception:
         st.error("⚠️ `GROQ_API_KEY` not found in `st.secrets`. Please configure your `.streamlit/secrets.toml` file.")
         return
 
-    # Initialize ChatGroq using the user-selected model and secure API key
     llm = ChatGroq(
         model=selected_model_name,
         temperature=0.1,
