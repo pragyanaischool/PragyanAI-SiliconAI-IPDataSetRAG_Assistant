@@ -10,7 +10,7 @@ from utils.database import db_get_all_groups_and_ips, db_get_file_registry
 
 def render():
     st.image("PragyanAI_Transperent.png")
-    st.title("📖 Page 5: Document Viewer & Page-by-Page RAG Summarizer")
+    st.title("Document Viewer & Page-by-Page RAG Summarizer")
     st.markdown("Select an IP group and model, browse ingested specification documents, view content page-by-page or slide-by-slide, and run AI RAG summarization on specific pages.")
 
     # Synchronize groups from SQLite if session state is empty
@@ -142,10 +142,10 @@ def render():
         current_chunk = source_docs[idx]
 
     # Step 4: Display Content Depending on Document Type
-    st.markdown(f"### 📄 Viewing: `{selected_source}` — [Page / Slide {page_num} of {total_pages}]")
+    st.markdown(f"### Viewing: `{selected_source}` — [Page / Slide {page_num} of {total_pages}]")
 
     if "PDF" in doc_type:
-        st.info("📌 **PDF Page View Mode**")
+        st.info(" **PDF Page View Mode**")
         st.text_area("Page Text Content", value=current_chunk.page_content if current_chunk else "", height=350, key="pdf_text_view")
         
         # Optional: Render visual PDF page preview if local file exists
@@ -166,12 +166,12 @@ def render():
                 pass
 
     elif doc_type == "Presentation Slide":
-        st.info("🖥️ **Presentation Slide View Mode**")
+        st.info(" **Presentation Slide View Mode**")
         st.markdown(f"#### Slide {page_num}")
         st.code(current_chunk.page_content if current_chunk else "", language="markdown")
 
     elif doc_type == "Excel Register Map":
-        st.info("📊 **Excel Register Map View Mode**")
+        st.info(" **Excel Register Map View Mode**")
         st.markdown(current_chunk.page_content if current_chunk else "")
 
     elif doc_type == "HDL Code":
@@ -179,12 +179,12 @@ def render():
         st.code(current_chunk.page_content if current_chunk else "", language="verilog")
 
     else:
-        st.info("📝 **General Document View Mode**")
+        st.info(" **General Document View Mode**")
         st.text_area("Content", value=current_chunk.page_content if current_chunk else "", height=350, key="gen_text_view")
 
     # Step 5: Page-by-Page RAG Summarizer
     st.markdown("---")
-    st.subheader("🤖 Page-by-Page AI RAG Summarizer & Technical Analysis")
+    st.subheader(" Page-by-Page AI RAG Summarizer & Technical Analysis")
     
     analysis_focus = st.selectbox(
         "Select Summarization Focus", 
@@ -197,7 +197,7 @@ def render():
         key="sum_focus_sel"
     )
 
-    if st.button("✨ Summarize & Analyze Selected Page", type="primary", key="btn_summarize_page"):
+    if st.button(" Summarize & Analyze Selected Page", type="primary", key="btn_summarize_page"):
         try:
             groq_api_key = st.secrets["GROQ_API_KEY"]
             model_name = st.secrets.get("MODEL_NAME", "llama-3.3-70b-versatile")
@@ -224,5 +224,5 @@ Provide a rigorous, engineering-grade breakdown of this specific page content, h
 
         with st.spinner(f"Running AI analysis on Page {page_num} using `{model_name}`..."):
             response = llm.invoke(rag_summary_prompt)
-            st.markdown("### 📋 Page AI Analysis & Summary Result")
+            st.markdown("###  Page AI Analysis & Summary Result")
             st.markdown(response.content)
