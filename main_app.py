@@ -1,5 +1,5 @@
 import streamlit as st
-from views import page1_ingest, page2_chat, page3_citations, page4_compare
+from views import page1_ingest, page2_chat, page3_citations, page4_compare, page5_doc_viewer
 
 # Page Configuration
 st.set_page_config(
@@ -36,19 +36,20 @@ st.sidebar.image("PragyanAI_Transperent.png")
 st.sidebar.title("PragyanAI Silicon RAG")
 st.sidebar.caption("Hardware IP & Datasheet Engineering Suite")
 
-# Navigation Radio Menu (Including Page 4: Spec & Version Comparison)
+# Navigation Radio Menu (Including Page 5: Document Viewer & Summarizer)
 page_selection = st.sidebar.radio(
     "Navigation Menu",
     [
         "Ingestion & IP Management",
         "Interactive IP RAG Chat",
         "References & Citation Dashboard",
-        "Spec & Version Comparison"
+        "Spec & Version Comparison",
+        "Document Viewer & Page Summarizer"
     ]
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Registered IP Families")
+st.sidebar.markdown("### 📊 Registered IP Families")
 
 # Render active IP status grouped by Family in the sidebar
 if st.session_state.ip_databases:
@@ -60,12 +61,12 @@ if st.session_state.ip_databases:
         grouped_ips[g_name].append(ip_name)
 
     for group, ips in grouped_ips.items():
-        st.sidebar.markdown(f"** {group}**")
+        st.sidebar.markdown(f"**📂 {group}**")
         for ip in ips:
             doc_count = len(st.session_state.ip_file_registry.get(ip, {}))
             st.sidebar.write(f"&nbsp;&nbsp;&nbsp;&nbsp;• {ip} (`{doc_count} docs`)")
 else:
-    st.sidebar.caption("No IP models registered yet. Go to Page 1 to start.")
+    st.sidebar.caption("No IP models registered yet. Go to Ingestion to start.")
 
 # Route to the selected page view
 if page_selection == "Ingestion & IP Management":
@@ -76,3 +77,5 @@ elif page_selection == "References & Citation Dashboard":
     page3_citations.render()
 elif page_selection == "Spec & Version Comparison":
     page4_compare.render()
+elif page_selection == "Document Viewer & Page Summarizer":
+    page5_doc_viewer.render()
