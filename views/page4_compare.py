@@ -70,7 +70,7 @@ def ensure_spec_loaded(ip_name: str, group_name: str):
         st.session_state.ip_raw_docs[ip_name] = loaded_docs
     
     # Rebuild FAISS index if missing
-    if ip_name not in st.session_state.ip_databases and st.session_state.ip_raw_docs[ip_name]:
+    if ip_name not in st.session_state.ip_databases and st.session_state.ip_raw_docs.get(ip_name):
         rebuild_and_retain_vector_store(ip_name)
 
 def render():
@@ -78,11 +78,18 @@ def render():
     st.title("⚖️ Cross-Spec & Version Comparison Engine")
     st.markdown("Select protocol groups and specific specification versions (backed by SQLite and FAISS) to perform side-by-side comparisons, analyze architecture evolution, and automatically list page-by-page change deltas.")
 
-    # Synchronize group data from SQLite database
+    # Synchronize group data from SQLite database or session state fallback
     if "ip_groups" not in st.session_state or not st.session_state.ip_groups:
         st.session_state.ip_groups = db_get_all_groups_and_ips()
 
-    ip_groups = st.session_state.ip_groups
+    ip_groups = st.session_state.get("ip_groups", {})
+    
+    # Fallback to session state ip_databases if SQLite registry is empty
+    if not ip_groups and "ip_databases" in st.session_state:
+        for ip in st.session_state.ip_databases.keys():
+            ip_groups[ip] = "General"
+        st.session_state.ip_groups = ip_groups
+
     if not ip_groups:
         st.warning("⚠️ At least one IP model or specification container is required. Please ingest data on **Page 1: Ingestion & IP Management** first.")
         return
@@ -160,15 +167,6 @@ def render():
         llm = ChatGroq(model=model_name, temperature=0.1, groq_api_key=groq_api_key)
 
         with st.spinner(f"Retrieving and aligning context between [{spec_a}] and [{spec_b}]..."):
-            ip_raw_docs = st.session_state.get("ip_raw_docs", {})
-            docs_a = ip_raw_docs.get(spec_a, [])
-            docs_b = ip_raw_docs.get(spec_b, [])
-
-            if selected_source_a != "All Documents":
-                docs_a = [d for d in docs_a if d.metadata.get("source") == selected_source_a]
-            if selected_source_b != "All Documents":
-                docs_b = [d for d in docs_b if d.metadata.get("source") == selected_source_b]
-
             db_a = st.session_state.ip_databases[spec_a]
             db_b = st.session_state.ip_databases[spec_b]
             
