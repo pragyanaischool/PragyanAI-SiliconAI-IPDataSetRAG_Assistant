@@ -3,7 +3,7 @@ from langchain_groq import ChatGroq
 
 def render():
     st.image("PragyanAI_Transperent.png")
-    st.title(" Page 4: Cross-Spec & Version Comparison Engine")
+    st.title("Cross-Spec & Version Comparison Engine")
     st.markdown("Compare generational specification differences side-by-side (e.g., PCIe Gen 1 vs. Gen 2, or AXI3 vs. AXI4) to analyze architectural evolution, register map changes, signaling updates, and protocol deltas.")
 
     # Check if IP databases exist
@@ -37,19 +37,30 @@ def render():
             index=default_idx
         )
 
-    groq_api_key = st.text_input("Groq API Key", type="password", help="Sign up at console.groq.com", key="compare_api_key")
+    # Safely load Groq credentials and model name from st.secrets
+    try:
+        groq_api_key = st.secrets["GROQ_API_KEY"]
+        model_name = st.secrets.get("MODEL_NAME", "llama-3.3-70b-versatile")
+    except Exception:
+        st.error("⚠️ `GROQ_API_KEY` or `MODEL_NAME` not found in `st.secrets`. Please configure your `.streamlit/secrets.toml` file.")
+        return
 
     comparison_topic = st.text_input(
         "Specify Comparison Topic / Parameter", 
         placeholder="e.g., Signaling Rate, Max Payload Size, Link Training State Machine, or Register Offsets"
     )
 
-    if st.button("Generate Side-by-Side Comparison", type="primary") and groq_api_key and comparison_topic:
+    # Unique key assigned to prevent duplicate element ID collision
+    if st.button("Generate Side-by-Side Comparison", type="primary", key="btn_generate_comparison"):
+        if not comparison_topic.strip():
+            st.warning("💡 Please specify a comparison topic (e.g., 'Signaling Rate' or 'Register Offsets') above.")
+            return
+
         if spec_a == spec_b:
             st.warning("⚠️ Please select two different IP models or specification versions for comparison.")
             return
 
-        llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.1, groq_api_key=groq_api_key)
+        llm = ChatGroq(model=model_name, temperature=0.1, groq_api_key=groq_api_key)
 
         with st.spinner(f"Retrieving context from [{spec_a}] and [{spec_b}] for comparative analysis..."):
             # Retrieve chunks from Spec A
@@ -84,11 +95,8 @@ Perform a rigorous, side-by-side comparative analysis between **{spec_a}** and *
             response = llm.invoke(comparison_prompt)
             
             st.markdown("---")
-            st.subheader(f"📊 Comparative Analysis: {spec_a} vs. {spec_b}")
+            st.subheader(f" Comparative Analysis: {spec_a} vs. {spec_b}")
             st.markdown(response.content)
 
             # Store references for audit on Page 3
             st.session_state.last_references = chunks_a + chunks_b
-    else:
-        if not comparison_topic and st.button("Generate Side-by-Side Comparison", type="primary"):
-            st.info("💡 Please specify a comparison topic (e.g., 'Signaling Rate' or 'Register Offsets') above.")
