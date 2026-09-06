@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 from langchain_groq import ChatGroq
 
 # Dictionary of UI Translations for Multi-Language Interface Support
@@ -57,8 +58,26 @@ UI_TEXTS = {
     }
 }
 
+def clean_mermaid_code(raw_code: str) -> str:
+    """Sanitizes raw Mermaid graph syntax to prevent parse errors from special symbols or parentheses."""
+    code = raw_code.replace("```mermaid", "").replace("```", "").strip()
+    
+    if not code.startswith("graph"):
+        code = "graph TD\n" + code
+
+    cleaned_lines = []
+    for line in code.split("\n"):
+        # Replace symbols that break Mermaid rendering
+        line = line.replace("⊕", "plus")
+        line = line.replace("(", "_")
+        line = line.replace(")", "_")
+        line = line.replace("-", "_")
+        cleaned_lines.append(line)
+        
+    return "\n".join(cleaned_lines)
+
 def render():
-    selected_lang = st.sidebar.selectbox(" 1. Select Language / 言語 / Sprache", list(UI_TEXTS.keys()), index=0)
+    selected_lang = st.sidebar.selectbox("1. Select Language / 言語 / Sprache", list(UI_TEXTS.keys()), index=0)
     t = UI_TEXTS.get(selected_lang, UI_TEXTS["English"])
 
     # Multi-Model Selection in Sidebar
@@ -111,7 +130,7 @@ def render():
     st.markdown(t["subtitle"])
 
     if "ip_databases" not in st.session_state or not st.session_state.ip_databases:
-        st.warning("⚠️ No IP models found. Navigate to **Page 1: Ingestion & IP Management** to register an IP first.")
+        st.warning("⚠️ No IP models found. Navigate to **Ingestion & IP Management** to register an IP first.")
         return
 
     available_ips = list(st.session_state.ip_databases.keys())
@@ -210,13 +229,18 @@ def execute_rag_query(query: str, selected_ips: list, llm, chat_history: list, l
             context_text += chunk.page_content[:1500] + "\n"
             citations_list.append(f"- **[{ip_label}]** `{src_name}` ({doc_type}, Page: {page_idx})")
 
-        kg_prompt = f"""Based on the following hardware context, extract key entities (IP blocks, signals, registers, protocols) and their directional relationships. Generate a valid Mermaid.js graph string (using graph TD format) representing these connections. Return ONLY the mermaid code block syntax starting with graph TD:
+        kg_prompt = f"""Based on the following hardware context, extract key entities (IP blocks, signals, registers, protocols) and their directional relationships. 
+Generate a valid Mermaid.js graph string using `graph TD`. 
+CRITICAL RULES:
+1. Node IDs must be alphanumeric with underscores only (e.g. Lane1, XOR_Gate). No special symbols or spaces in IDs.
+2. Avoid using parentheses `()`, math symbols like `⊕`, or special characters inside node labels.
+3. Return ONLY the raw mermaid code block syntax starting with graph TD.
         
-        Context:
-        {context_text[:3000]}
-        """
+Context:
+{context_text[:3000]}
+"""
         kg_res = llm.invoke(kg_prompt)
-        mermaid_code = kg_res.content.replace("```mermaid", "").replace("```", "").strip()
+        mermaid_code = clean_mermaid_code(kg_res.content)
 
         system_prompt = f"""You are a Principal Silicon Architect and Senior RTL Verification Specialist. 
 Respond entirely in the requested interface language: **{lang}**.
