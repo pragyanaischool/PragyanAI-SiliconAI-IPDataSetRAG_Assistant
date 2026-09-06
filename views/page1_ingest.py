@@ -53,8 +53,8 @@ def rebuild_vector_store(ip_name: str):
 
 def render():
     st.image("PragyanAI_Transperent.png")
-    st.title("IP Core & Knowledge Base Management")
-    st.markdown("Register semiconductor IP cores categorized by protocol families/groups, manage added documents, view brief metrics (page counts, key topics), add new sources, or remove obsolete files.")
+    st.title("📂 IP Core & Knowledge Base Management")
+    st.markdown("Select existing protocol groups or create new ones, manage IP version containers, inspect document metrics, and ingest multi-source technical data.")
 
     # Global State Initializations for Raw Document Persistence & Management
     if "ip_databases" not in st.session_state:
@@ -66,15 +66,29 @@ def render():
     if "ip_file_registry" not in st.session_state:
         st.session_state.ip_file_registry = {}  # {ip_name: {source_name: {type, pages, brief}}}
 
-    # 1. IP Group & Model Registration Form
-    st.subheader("1. Register or Select Semiconductor IP Model & Group")
+    # Gather available groups from session state
+    existing_groups = sorted(list(set(st.session_state.ip_groups.values())))
+
+    # ==========================================
+    # SECTION 1: SELECT GROUP & MODEL CONTAINER
+    # ==========================================
+    st.subheader("1. Select Existing Group / Protocol Family or Create New")
+    
     with st.form("ip_registration_form"):
         col_g1, col_g2 = st.columns(2)
+        
         with col_g1:
-            group_name_input = st.text_input(
-                "IP Group / Protocol Family", 
-                placeholder="e.g., PCIe, AMBA, SPI, RISCV"
-            )
+            group_action_options = ["Select Existing Group"] + existing_groups + ["+ Create New Group"]
+            selected_group_action = st.selectbox("Protocol Group Management", group_action_options)
+            
+            group_name_input = ""
+            if selected_group_action == "+ Create New Group":
+                group_name_input = st.text_input("Enter New Group / Protocol Family Name", placeholder="e.g., PCIe, AMBA, SPI, RISCV")
+            elif selected_group_action != "Select Existing Group":
+                group_name_input = selected_group_action
+            else:
+                group_name_input = st.text_input("IP Group / Protocol Family", placeholder="e.g., PCIe, AMBA, SPI, RISCV")
+
         with col_g2:
             ip_name_input = st.text_input(
                 "IP Model / Version Identifier", 
@@ -98,18 +112,18 @@ def render():
             st.success(f"Active IP configured under Group **[{clean_group_name}]**: **{clean_ip_name}**")
 
     if "current_ip" not in st.session_state:
-        st.info("👈 Please define the IP Group and Model Identifier above to begin managing documents.")
+        st.info("👈 Please select or define a Group and IP Model Identifier above to begin managing documents.")
         return
 
     active_ip = st.session_state.current_ip
     active_group = st.session_state.ip_groups.get(active_ip, "General")
-    st.markdown(f"### Managing Knowledge Base for: `{active_ip}` (Family: *{active_group}*)")
+    st.markdown(f"### ⚙️ Managing Knowledge Base for: `{active_ip}` (Family Group: *{active_group}*)")
 
     # ==========================================
     # SECTION 2: VIEW ADDED DOCUMENTS & BRIEFS
     # ==========================================
     st.markdown("---")
-    st.subheader("Document Database & Brief Overview")
+    st.subheader("📋 Document Database & Brief Overview")
     
     registry = st.session_state.ip_file_registry.get(active_ip, {})
     
@@ -117,7 +131,7 @@ def render():
         st.write(f"Total active documents/sources indexed: **{len(registry)}**")
         
         for source_name, meta in list(registry.items()):
-            with st.expander(f"[{meta['type']}] {source_name} — ({meta['pages']} pages/segments)"):
+            with st.expander(f"📄 [{meta['type']}] {source_name} — ({meta['pages']} pages/segments)"):
                 col_a, col_b = st.columns(2)
                 with col_a:
                     st.write(f"**IP Family Group:** `{active_group}`")
@@ -130,7 +144,7 @@ def render():
                 st.info(meta['brief'])
 
                 # Option to remove specific document
-                if st.button(f"Remove Document: {source_name}", key=f"del_{active_ip}_{source_name}"):
+                if st.button(f"🗑️ Remove Document: {source_name}", key=f"del_{active_ip}_{source_name}"):
                     st.session_state.ip_raw_docs[active_ip] = [
                         doc for doc in st.session_state.ip_raw_docs[active_ip] 
                         if doc.metadata.get("source") != source_name
@@ -373,4 +387,3 @@ def render():
                     st.rerun()
             else:
                 st.warning("Please provide a research query.")
-                
