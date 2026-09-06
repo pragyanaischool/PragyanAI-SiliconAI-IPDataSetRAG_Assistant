@@ -4,52 +4,56 @@ from langchain_groq import ChatGroq
 # Dictionary of UI Translations for Multi-Language Interface Support
 UI_TEXTS = {
     "English": {
-        "title": " Page 2: Expert Multi-IP Silicon RAG Assistant",
-        "subtitle": "Select IP models, customize extraction profiles, refine your questions, and query specifications using secure secrets.",
+        "title": "Expert Multi-IP Silicon RAG Assistant",
+        "subtitle": "Select IP models, choose your inference model, customize extraction profiles, and query specifications using secure secrets.",
         "select_ip": "Active Target IP Core(s)",
+        "model_label": "Select Inference Model",
         "input_placeholder": "Ask technical questions regarding specifications, registers, or RTL code...",
-        "refine_header": " AI Query Refinement & Validation",
+        "refine_header": "AI Query Refinement & Validation",
         "refine_prompt": "Our AI architect has refined your query for maximum engineering precision. Is this what you are looking for? Edit if needed and submit:",
-        "submit_refined": " Confirm & Execute Query",
-        "kg_header": " Dynamic IP Knowledge Graph",
+        "submit_refined": "Confirm & Execute Query",
+        "kg_header": "Dynamic IP Knowledge Graph",
         "kg_caption": "Visualizing relationship entities and protocol hierarchies extracted from retrieved context:",
-        "citations": " Referenced Citations:"
+        "citations": "Referenced Citations:"
     },
     "Japanese (日本語)": {
-        "title": " ページ 2: エキスパートマルチIPシリコン RAG アシスタント",
-        "subtitle": "IPモデルを選択し、質問を洗練させ、安全なシークレットを使用して仕様を照会します。",
+        "title": "💬 ページ 2: エキスパートマルチIPシリコン RAG アシスタント",
+        "subtitle": "IPモデルを選択し、推論モデルを選択し、質問を洗練させ、安全なシークレットを使用して仕様を照会します。",
         "select_ip": "アクティブな対象IPコア",
+        "model_label": "推論モデルの選択",
         "input_placeholder": "仕様、レジスタ、またはRTLコードに関する技術的な質問をしてください...",
-        "refine_header": " AIクエリの洗練と検証",
+        "refine_header": "🔍 AIクエリの洗練と検証",
         "refine_prompt": "AIアーキテクトがクエリを洗練させました。お探しの内容ですか？",
-        "submit_refined": " 確認してクエリを実行",
-        "kg_header": " 動的IP知識グラフ",
+        "submit_refined": "🚀 確認してクエリを実行",
+        "kg_header": "🕸️ 動的IP知識グラフ",
         "kg_caption": "抽出されたリレーションシップとプロトコル階層の視覚化：",
-        "citations": " 参照された引用:"
+        "citations": "📚 参照された引用:"
     },
     "German (Deutsch)": {
-        "title": " Seite 2: Experten Multi-IP Silicon RAG Assistent",
-        "subtitle": "Wählen Sie IP-Modelle aus und fragen Sie Spezifikationen mit sicheren Geheimnissen ab.",
+        "title": "💬 Seite 2: Experten Multi-IP Silicon RAG Assistent",
+        "subtitle": "Wählen Sie IP-Modelle und das KI-Modell aus, um Spezifikationen mit sicheren Geheimnissen abzufragen.",
         "select_ip": "Aktive Ziel-IP-Kerne",
+        "model_label": "KI-Modell auswählen",
         "input_placeholder": "Stellen Sie technische Fragen zu Spezifikationen, Registern oder RTL-Code...",
-        "refine_header": " KI-Abfrageverfeinerung & Validierung",
+        "refine_header": "🔍 KI-Abfrageverfeinerung & Validierung",
         "refine_prompt": "Unsere KI hat Ihre Anfrage verfeinert. Ist das wonach Sie suchen?",
-        "submit_refined": " Bestätigen & Ausführen",
-        "kg_header": " Dynamischer IP-Wissensgraph",
+        "submit_refined": "🚀 Bestätigen & Ausführen",
+        "kg_header": "🕸️ Dynamischer IP-Wissensgraph",
         "kg_caption": "Visualisierung von Entitäten und Protokollhierarchien:",
-        "citations": " Zitierte Quellen:"
+        "citations": "📚 Zitierte Quellen:"
     },
     "Mandarin (中文)": {
-        "title": " 页面 2: 专家多 IP 芯片 RAG 助手",
-        "subtitle": "选择 IP 模型、精炼您的问题，并使用安全的凭证查询规格说明。",
+        "title": "💬 页面 2: 专家多 IP 芯片 RAG 助手",
+        "subtitle": "选择 IP 模型、推理模型、精炼您的问题，并使用安全的凭证查询规格说明。",
         "select_ip": "活动目标 IP 核心",
+        "model_label": "选择推理模型",
         "input_placeholder": "询问关于规格、寄存器或 RTL 代码的技术问题...",
-        "refine_header": " AI 问题精炼与验证",
+        "refine_header": "🔍 AI 问题精炼与验证",
         "refine_prompt": "这是您要找的内容吗？如有需要可进行编辑并提交：",
-        "submit_refined": " 确认并执行查询",
-        "kg_header": " 动态 IP 知识图谱",
+        "submit_refined": "🚀 确认并执行查询",
+        "kg_header": "🕸️ 动态 IP 知识图谱",
         "kg_caption": "可视化从检索到的上下文中提取的实体关系：",
-        "citations": " 参考引用:"
+        "citations": "📚 参考引用:"
     }
 }
 
@@ -57,8 +61,31 @@ def render():
     selected_lang = st.sidebar.selectbox(" 1. Select Language / 言語 / Sprache", list(UI_TEXTS.keys()), index=0)
     t = UI_TEXTS.get(selected_lang, UI_TEXTS["English"])
 
+    # Multi-Model Selection in Sidebar
     st.sidebar.markdown("---")
-    st.sidebar.markdown("###  Custom Extraction Studio")
+    st.sidebar.markdown("### LLM Model Selection")
+    available_models = [
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-safeguard-20b",
+        "qwen/qwen3.6-27b",
+        "qwen/qwen3.8-27b",
+        "groq/compound"
+    ]
+    
+    # Safely load default model from st.secrets if available
+    default_model = "openai/gpt-oss-120b"
+    try:
+        secret_model = st.secrets.get("MODEL_NAME", None)
+        if secret_model in available_models:
+            default_model = secret_model
+    except Exception:
+        pass
+
+    selected_model_name = st.sidebar.selectbox(t["model_label"], available_models, index=available_models.index(default_model))
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🎛️ Custom Extraction Studio")
     custom_extraction_mode = st.sidebar.selectbox(
         "Extraction Profile", 
         ["Standard Silicon Architect", "Register Map (JSON/Table)", "UVM Testbench Generator", "Timing & Clock Domain Constraints", "Custom Instructions"]
@@ -94,17 +121,16 @@ def render():
         st.info("💡 Please select at least one IP model to begin.")
         return
 
-    # Safely load Groq credentials and model name from st.secrets
+    # Safely load Groq credentials from st.secrets
     try:
         groq_api_key = st.secrets["GROQ_API_KEY"]
-        model_name = st.secrets.get("MODEL_NAME", "llama-3.3-70b-versatile")
     except Exception:
-        st.error("⚠️ `GROQ_API_KEY` or `MODEL_NAME` not found in `st.secrets`. Please configure your `.streamlit/secrets.toml` file.")
+        st.error("⚠️ `GROQ_API_KEY` not found in `st.secrets`. Please configure your `.streamlit/secrets.toml` file.")
         return
 
-    # Initialize ChatGroq using secrets
+    # Initialize ChatGroq using the user-selected model and secure API key
     llm = ChatGroq(
-        model=model_name,
+        model=selected_model_name,
         temperature=0.1,
         groq_api_key=groq_api_key
     )
@@ -149,7 +175,7 @@ def render():
         with col_sub1:
             if st.button(t["submit_refined"], type="primary"):
                 st.session_state.show_refinement_box = False
-                execute_rag_query(final_query_to_run, selected_ips, llm, chat_history, selected_lang, t, active_profile_instruction)
+                execute_rag_query(final_query_to_run, selected_ips, llm, chat_history, selected_lang, t, active_profile_instruction, selected_model_name)
                 st.rerun()
         with col_sub2:
             if st.button("❌ Cancel"):
@@ -157,12 +183,12 @@ def render():
                 st.rerun()
         st.markdown("---")
 
-def execute_rag_query(query: str, selected_ips: list, llm, chat_history: list, lang: str, t: dict, extraction_directive: str):
+def execute_rag_query(query: str, selected_ips: list, llm, chat_history: list, lang: str, t: dict, extraction_directive: str, model_name: str):
     chat_history.append({"role": "user", "content": query})
     with st.chat_message("user"):
         st.markdown(query)
 
-    with st.spinner("Executing multi-IP retrieval and synthesizing response..."):
+    with st.spinner(f"Executing multi-IP retrieval and synthesizing response using `{model_name}`..."):
         retrieved_chunks = []
         for ip in selected_ips:
             vector_db = st.session_state.ip_databases[ip]
