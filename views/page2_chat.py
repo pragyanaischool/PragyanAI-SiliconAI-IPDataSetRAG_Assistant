@@ -4,7 +4,7 @@ from langchain_groq import ChatGroq
 # Dictionary of UI Translations for Multi-Language Interface Support
 UI_TEXTS = {
     "English": {
-        "title": "💬 Page 2: Expert Multi-IP Silicon RAG Assistant",
+        "title": " Page 2: Expert Multi-IP Silicon RAG Assistant",
         "subtitle": "Select IP models, customize extraction profiles, refine your questions, and query specifications in your preferred language.",
         "select_ip": "Active Target IP Core(s)",
         "api_key": "Groq API Key",
@@ -18,7 +18,7 @@ UI_TEXTS = {
         "citations": "📚 Referenced Citations:"
     },
     "Japanese (日本語)": {
-        "title": "💬 ページ 2: エキスパートマルチIPシリコン RAG アシスタント",
+        "title": " ページ 2: エキスパートマルチIPシリコン RAG アシスタント",
         "subtitle": "IPモデルを選択し、抽出プロファイルをカスタマイズし、質問を洗練させ、お好みの言語で仕様を照会します。",
         "select_ip": "アクティブな対象IPコア",
         "api_key": "Groq APIキー",
@@ -32,7 +32,7 @@ UI_TEXTS = {
         "citations": "📚 参照された引用:"
     },
     "German (Deutsch)": {
-        "title": "💬 Seite 2: Experten Multi-IP Silicon RAG Assistent",
+        "title": " Seite 2: Experten Multi-IP Silicon RAG Assistent",
         "subtitle": "Wählen Sie IP-Modelle aus, passen Sie Extraktionsprofile an, verfeinern Sie Fragen und fragen Sie Spezifikationen ab.",
         "select_ip": "Aktive Ziel-IP-Kerne",
         "api_key": "Groq API-Schlüssel",
@@ -46,7 +46,7 @@ UI_TEXTS = {
         "citations": "📚 Zitierte Quellen:"
     },
     "Mandarin (中文)": {
-        "title": "💬 页面 2: 专家多 IP 芯片 RAG 助手",
+        "title": " 页面 2: 专家多 IP 芯片 RAG 助手",
         "subtitle": "选择 IP 模型、自定义提取配置文件、精炼您的问题，并以您首选的语言查询。",
         "select_ip": "活动目标 IP 核心",
         "api_key": "Groq API 密钥",
@@ -63,12 +63,12 @@ UI_TEXTS = {
 
 def render():
     # Multi-Language Selection in Sidebar
-    selected_lang = st.sidebar.selectbox("🌐 Select Language / 言語 / Sprache", list(UI_TEXTS.keys()), index=0)
+    selected_lang = st.sidebar.selectbox(" Select Language / 言語 / Sprache", list(UI_TEXTS.keys()), index=0)
     t = UI_TEXTS.get(selected_lang, UI_TEXTS["English"])
 
     # Custom Extraction Studio Sidebar Controls
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🎛️ Custom Extraction Studio")
+    st.sidebar.markdown("### Custom Extraction Studio")
     custom_extraction_mode = st.sidebar.selectbox(
         "Extraction Profile", 
         ["Standard Silicon Architect", "Register Map (JSON/Table)", "UVM Testbench Generator", "Timing & Clock Domain Constraints", "Custom Instructions"]
@@ -90,6 +90,7 @@ def render():
     }
     active_profile_instruction = profile_instructions.get(custom_extraction_mode, "")
 
+    st.image("PragyanAI_Transperent.png")
     st.title(t["title"])
     st.markdown(t["subtitle"])
 
