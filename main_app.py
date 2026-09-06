@@ -1,5 +1,7 @@
 import streamlit as st
 from views import page1_ingest, page2_chat, page3_citations, page4_compare, page5_doc_viewer
+from utils.database import init_db, db_get_all_groups_and_ips, db_get_file_registry
+from utils.vector_store import initialize_vector_persistence
 
 # Page Configuration
 st.set_page_config(
@@ -9,18 +11,31 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Global Session State Initializations
+# Initialize SQLite Database & Vector Persistence Structures
+init_db()
+initialize_vector_persistence()
+
+# Global Session State Initializations & Sync with SQLite
 if "ip_databases" not in st.session_state:
     st.session_state.ip_databases = {}  # Format: {ip_name: FAISS_vector_store}
 
 if "ip_groups" not in st.session_state:
-    st.session_state.ip_groups = {}     # Format: {ip_name: group_name}
+    st.session_state.ip_groups = db_get_all_groups_and_ips()  # Format: {ip_name: group_name}
+else:
+    # Sync with database if session dictionary is empty
+    if not st.session_state.ip_groups:
+        st.session_state.ip_groups = db_get_all_groups_and_ips()
 
 if "ip_raw_docs" not in st.session_state:
     st.session_state.ip_raw_docs = {}   # Format: {ip_name: [Document, ...]}
 
 if "ip_file_registry" not in st.session_state:
     st.session_state.ip_file_registry = {}  # Format: {ip_name: {source_name: {type, pages, brief}}}
+
+# Sync SQLite registry files into session state on load
+for ip_name in st.session_state.ip_groups.keys():
+    if ip_name not in st.session_state.ip_file_registry or not st.session_state.ip_file_registry[ip_name]:
+        st.session_state.ip_file_registry[ip_name] = db_get_file_registry(ip_name)
 
 if "ip_metadata" not in st.session_state:
     st.session_state.ip_metadata = {}   # Legacy support metadata container
@@ -51,19 +66,21 @@ page_selection = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📊 Registered IP Families")
 
-# Render active IP status grouped by Family in the sidebar
-if st.session_state.ip_databases:
+# Render active IP status grouped by Family in the sidebar pulled from SQLite backend
+all_db_groups = db_get_all_groups_and_ips()
+
+if all_db_groups:
     grouped_ips = {}
-    for ip_name in st.session_state.ip_databases.keys():
-        g_name = st.session_state.ip_groups.get(ip_name, "General")
-        if g_name not in grouped_ips:
-            grouped_ips[g_name] = []
-        grouped_ips[g_name].append(ip_name)
+    for ip_name, group_name in all_db_groups.items():
+        if group_name not in grouped_ips:
+            grouped_ips[group_name] = []
+        grouped_ips[group_name].append(ip_name)
 
     for group, ips in grouped_ips.items():
         st.sidebar.markdown(f"**📂 {group}**")
         for ip in ips:
-            doc_count = len(st.session_state.ip_file_registry.get(ip, {}))
+            reg_files = db_get_file_registry(ip)
+            doc_count = len(reg_files)
             st.sidebar.write(f"&nbsp;&nbsp;&nbsp;&nbsp;• {ip} (`{doc_count} docs`)")
 else:
     st.sidebar.caption("No IP models registered yet. Go to Ingestion to start.")
