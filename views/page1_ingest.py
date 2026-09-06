@@ -50,7 +50,7 @@ def scrape_web_page(url: str) -> str:
 
 def render():
     st.image("PragyanAI_Transperent.png")
-    st.title("📂 IP Core & Knowledge Base Management (SQL + FAISS CPU)")
+    st.title("IP Core & Knowledge Base Management (SQL + FAISS CPU)")
     st.markdown("Organize semiconductor IPs stored persistently in SQLite database, manage added documents, ingest multi-source data into **FAISS CPU Vector Store**, and retain information across sessions.")
 
     # Initialize SQLite and Vector Persistence Structures
@@ -108,7 +108,7 @@ def render():
 
     active_ip = st.session_state.current_ip
     active_group = st.session_state.ip_groups.get(active_ip, "General")
-    st.markdown(f"### ⚙️ Managing Knowledge Base for: `{active_ip}` (Family Group: *{active_group}*)")
+    st.markdown(f"### Managing Knowledge Base for: `{active_ip}` (Family Group: *{active_group}*)")
 
     # Fetch document registry and file counts from SQLite backend
     registry = db_get_file_registry(active_ip)
@@ -119,7 +119,7 @@ def render():
     # SECTION 2: VIEW ADDED DOCUMENTS & DETAILS
     # ==========================================
     st.markdown("---")
-    st.subheader("📋 Document Database & Stored Details (SQLite Backed)")
+    st.subheader(" Document Database & Stored Details (SQLite Backed)")
     
     has_vector_store = active_ip in st.session_state.ip_databases
     if has_vector_store:
@@ -131,7 +131,7 @@ def render():
         st.write(f"Total active documents/sources indexed under Group **[{active_group}]** / IP **`{active_ip}`**: **{total_files_for_ip}** file(s)")
         
         for source_name, meta in list(registry.items()):
-            with st.expander(f"📄 [{meta['type']}] {source_name} — ({meta['pages']} pages/segments)"):
+            with st.expander(f" [{meta['type']}] {source_name} — ({meta['pages']} pages/segments)"):
                 col_a, col_b = st.columns(2)
                 with col_a:
                     st.write(f"**IP Family Group:** `{active_group}`")
@@ -144,7 +144,7 @@ def render():
                 st.info(meta['brief'])
 
                 # Option to remove specific document from SQLite and FAISS
-                if st.button(f"🗑️ Remove Document: {source_name}", key=f"del_{active_ip}_{source_name}"):
+                if st.button(f" Remove Document: {source_name}", key=f"del_{active_ip}_{source_name}"):
                     if active_ip in st.session_state.ip_raw_docs:
                         st.session_state.ip_raw_docs[active_ip] = [
                             doc for doc in st.session_state.ip_raw_docs[active_ip] 
@@ -161,7 +161,7 @@ def render():
     # SECTION 3: ADD NEW FILES & SOURCES
     # ==========================================
     st.markdown("---")
-    st.subheader("➕ Add New Files & Knowledge Sources (Saves to SQL & FAISS CPU)")
+    st.subheader(" Add New Files & Knowledge Sources (Saves to SQL & FAISS CPU)")
 
     tab1, tab2, tab3, tab4 = st.tabs([
         "1. Local Files (PDF / DOCX / PPT / XLSX / RTL)",
