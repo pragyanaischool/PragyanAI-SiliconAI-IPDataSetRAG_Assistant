@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+bin/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Streamlit local configuration
+.streamlit/
+
+# Temporary vector stores, uploaded documents, and downloaded PDFs
+temp_ip_data/
+temp_ingest_data/
+*.pdf
+*.xlsx
+*.docx
+*.pptx
+*.v
+*.sv
+*.vhdl
