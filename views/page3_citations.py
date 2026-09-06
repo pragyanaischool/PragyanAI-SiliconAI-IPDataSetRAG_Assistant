@@ -1,12 +1,13 @@
 import streamlit as st
 
 def render():
-    st.title("📚 Page 3: Reference Materials & Citation Dashboard")
+    st.image("PragyanAI_Transperent.png")
+    st.title(" Page 3: Reference Materials & Citation Dashboard")
     st.markdown("Audit the exact knowledge chunks, page indices, register tables, and RTL code snippets surfaced during the latest chat query across your semiconductor IP databases.")
 
     # Check if reference data exists in session state from Page 2
     if "last_references" not in st.session_state or not st.session_state.last_references:
-        st.info("💡 No query references recorded yet. Head over to **Page 2: Interactive IP RAG Chat**, select an IP model, and ask a question to generate complete citation traces here.")
+        st.info(" No query references recorded yet. Head over to **Page 2: Interactive IP RAG Chat**, select an IP model, and ask a question to generate complete citation traces here.")
         return
 
     references = st.session_state.last_references
