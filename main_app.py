@@ -40,15 +40,15 @@ st.sidebar.caption("Hardware IP & Datasheet Engineering Suite")
 page_selection = st.sidebar.radio(
     "Navigation Menu",
     [
-        "Page 1: Ingestion & IP Management",
-        "Page 2: Interactive IP RAG Chat",
-        "Page 3: References & Citation Dashboard",
-        "Page 4: Spec & Version Comparison"
+        "Ingestion & IP Management",
+        "Interactive IP RAG Chat",
+        "References & Citation Dashboard",
+        "Spec & Version Comparison"
     ]
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📊 Registered IP Families")
+st.sidebar.markdown("### Registered IP Families")
 
 # Render active IP status grouped by Family in the sidebar
 if st.session_state.ip_databases:
@@ -60,7 +60,7 @@ if st.session_state.ip_databases:
         grouped_ips[g_name].append(ip_name)
 
     for group, ips in grouped_ips.items():
-        st.sidebar.markdown(f"**📂 {group}**")
+        st.sidebar.markdown(f"** {group}**")
         for ip in ips:
             doc_count = len(st.session_state.ip_file_registry.get(ip, {}))
             st.sidebar.write(f"&nbsp;&nbsp;&nbsp;&nbsp;• {ip} (`{doc_count} docs`)")
@@ -68,11 +68,11 @@ else:
     st.sidebar.caption("No IP models registered yet. Go to Page 1 to start.")
 
 # Route to the selected page view
-if page_selection == "Page 1: Ingestion & IP Management":
+if page_selection == "Ingestion & IP Management":
     page1_ingest.render()
-elif page_selection == "Page 2: Interactive IP RAG Chat":
+elif page_selection == "Interactive IP RAG Chat":
     page2_chat.render()
-elif page_selection == "Page 3: References & Citation Dashboard":
+elif page_selection == "References & Citation Dashboard":
     page3_citations.render()
-elif page_selection == "Page 4: Spec & Version Comparison":
+elif page_selection == "Spec & Version Comparison":
     page4_compare.render()
