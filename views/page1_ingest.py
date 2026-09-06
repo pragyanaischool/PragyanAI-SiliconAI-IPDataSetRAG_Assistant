@@ -53,47 +53,63 @@ def rebuild_vector_store(ip_name: str):
 
 def render():
     st.image("PragyanAI_Transperent.png")
-    st.title(" Page 1: IP Core & Knowledge Base Management")
-    st.markdown("Register semiconductor IP cores, manage added documents, view brief metrics (page counts, key topics), add new sources, or remove obsolete files.")
+    st.title("Page 1: IP Core & Knowledge Base Management")
+    st.markdown("Register semiconductor IP cores categorized by protocol families/groups, manage added documents, view brief metrics (page counts, key topics), add new sources, or remove obsolete files.")
 
     # Global State Initializations for Raw Document Persistence & Management
     if "ip_databases" not in st.session_state:
         st.session_state.ip_databases = {}
+    if "ip_groups" not in st.session_state:
+        st.session_state.ip_groups = {}     # {ip_name: group_name}
     if "ip_raw_docs" not in st.session_state:
-        st.session_state.ip_raw_docs = {}  # {ip_name: [Document, ...]}
+        st.session_state.ip_raw_docs = {}   # {ip_name: [Document, ...]}
     if "ip_file_registry" not in st.session_state:
-        st.session_state.ip_file_registry = {}  # {ip_name: {source_name: {type, pages, sample_text}}}
+        st.session_state.ip_file_registry = {}  # {ip_name: {source_name: {type, pages, brief}}}
 
-    # 1. IP Model Registration / Selection
-    st.subheader("1. Select or Register Semiconductor IP Model")
+    # 1. IP Group & Model Registration Form
+    st.subheader("1. Register or Select Semiconductor IP Model & Group")
     with st.form("ip_registration_form"):
-        ip_name_input = st.text_input(
-            "IP Model Identifier", 
-            placeholder="e.g., AMBA_AXI4_Interconnect, RISCV_RV32I, SPI_Engine"
-        )
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            group_name_input = st.text_input(
+                "IP Group / Protocol Family", 
+                placeholder="e.g., PCIe, AMBA, SPI, RISCV"
+            )
+        with col_g2:
+            ip_name_input = st.text_input(
+                "IP Model / Version Identifier", 
+                placeholder="e.g., PCIe_Gen2, AXI4_Interconnect"
+            )
+            
         submitted = st.form_submit_button("Register / Set Active IP Container")
         
-        if submitted and ip_name_input.strip():
+        if submitted and ip_name_input.strip() and group_name_input.strip():
             clean_ip_name = ip_name_input.strip().replace(" ", "_")
+            clean_group_name = group_name_input.strip().replace(" ", "_")
+            
             st.session_state.current_ip = clean_ip_name
+            st.session_state.ip_groups[clean_ip_name] = clean_group_name
+            
             if clean_ip_name not in st.session_state.ip_raw_docs:
                 st.session_state.ip_raw_docs[clean_ip_name] = []
             if clean_ip_name not in st.session_state.ip_file_registry:
                 st.session_state.ip_file_registry[clean_ip_name] = {}
-            st.success(f"Active IP context configured: **{clean_ip_name}**")
+                
+            st.success(f"Active IP configured under Group **[{clean_group_name}]**: **{clean_ip_name}**")
 
     if "current_ip" not in st.session_state:
-        st.info("👈 Please define and register an IP Model name above to begin managing documents.")
+        st.info("👈 Please define the IP Group and Model Identifier above to begin managing documents.")
         return
 
     active_ip = st.session_state.current_ip
-    st.markdown(f"###  Managing Knowledge Base for: `{active_ip}`")
+    active_group = st.session_state.ip_groups.get(active_ip, "General")
+    st.markdown(f"### Managing Knowledge Base for: `{active_ip}` (Family: *{active_group}*)")
 
     # ==========================================
     # SECTION 2: VIEW ADDED DOCUMENTS & BRIEFS
     # ==========================================
     st.markdown("---")
-    st.subheader(" Document Database & Brief Overview")
+    st.subheader("Document Database & Brief Overview")
     
     registry = st.session_state.ip_file_registry.get(active_ip, {})
     
@@ -101,27 +117,25 @@ def render():
         st.write(f"Total active documents/sources indexed: **{len(registry)}**")
         
         for source_name, meta in list(registry.items()):
-            with st.expander(f" [{meta['type']}] {source_name} — ({meta['pages']} pages/segments)"):
+            with st.expander(f"[{meta['type']}] {source_name} — ({meta['pages']} pages/segments)"):
                 col_a, col_b = st.columns(2)
                 with col_a:
+                    st.write(f"**IP Family Group:** `{active_group}`")
                     st.write(f"**Document Type:** `{meta['type']}`")
-                    st.write(f"**Total Pages / Sections:** `{meta['pages']}`")
                 with col_b:
+                    st.write(f"**Total Pages / Sections:** `{meta['pages']}`")
                     st.write(f"**Source Identifier:** `{source_name}`")
                 
                 st.markdown("**Key Topics / Brief Overview:**")
                 st.info(meta['brief'])
 
                 # Option to remove specific document
-                if st.button(f" Remove Document: {source_name}", key=f"del_{active_ip}_{source_name}"):
-                    # Remove from raw docs list
+                if st.button(f"Remove Document: {source_name}", key=f"del_{active_ip}_{source_name}"):
                     st.session_state.ip_raw_docs[active_ip] = [
                         doc for doc in st.session_state.ip_raw_docs[active_ip] 
                         if doc.metadata.get("source") != source_name
                     ]
-                    # Remove from registry
                     del st.session_state.ip_file_registry[active_ip][source_name]
-                    # Rebuild vector store
                     rebuild_vector_store(active_ip)
                     st.success(f"Successfully removed '{source_name}' and updated vector store!")
                     st.rerun()
@@ -142,7 +156,6 @@ def render():
     ])
 
     new_docs = []
-    new_file_metadata = {}
     os.makedirs("temp_ip_data", exist_ok=True)
 
     # TAB 1: LOCAL FILES
@@ -179,6 +192,7 @@ def render():
                                                 "source": file.name,
                                                 "page": page_num + 1,
                                                 "ip": active_ip,
+                                                "group": active_group,
                                                 "type": "PDF Datasheet"
                                             }
                                         ))
@@ -191,7 +205,7 @@ def render():
                             doc_type = "Word Document"
                             new_docs.append(Document(
                                 page_content=full_extracted_text,
-                                metadata={"source": file.name, "page": 1, "ip": active_ip, "type": doc_type}
+                                metadata={"source": file.name, "page": 1, "ip": active_ip, "group": active_group, "type": doc_type}
                             ))
                         # PPTX Processing
                         elif file.name.lower().endswith(".pptx"):
@@ -208,7 +222,7 @@ def render():
                                     full_extracted_text += slide_text + "\n"
                                     new_docs.append(Document(
                                         page_content=slide_text,
-                                        metadata={"source": file.name, "page": slide_idx + 1, "ip": active_ip, "type": doc_type}
+                                        metadata={"source": file.name, "page": slide_idx + 1, "ip": active_ip, "group": active_group, "type": doc_type}
                                     ))
                         # Excel Processing
                         elif file.name.lower().endswith(".xlsx"):
@@ -221,7 +235,7 @@ def render():
                                 full_extracted_text += sheet_md + "\n"
                                 new_docs.append(Document(
                                     page_content=sheet_md,
-                                    metadata={"source": f"{file.name} [{sheet}]", "page": 1, "ip": active_ip, "type": doc_type}
+                                    metadata={"source": f"{file.name} [{sheet}]", "page": 1, "ip": active_ip, "group": active_group, "type": doc_type}
                                 ))
                         # Verilog / VHDL Code Processing
                         else:
@@ -231,19 +245,17 @@ def render():
                             file_page_count = 1
                             new_docs.append(Document(
                                 page_content=full_extracted_text,
-                                metadata={"source": file.name, "page": 1, "ip": active_ip, "type": doc_type}
+                                metadata={"source": file.name, "page": 1, "ip": active_ip, "group": active_group, "type": doc_type}
                             ))
 
-                        # Generate brief overview from first 1000 characters
                         brief_summary = full_extracted_text[:400].replace("\n", " ") + "..." if len(full_extracted_text) > 400 else full_extracted_text
                         
                         st.session_state.ip_file_registry[active_ip][file.name] = {
                             "type": doc_type,
                             "pages": file_page_count,
-                            "brief": f"Covers structural definitions, interface specifications, and register configurations. Excerpt: {brief_summary}"
+                            "brief": f"Group: {active_group}. Excerpt: {brief_summary}"
                         }
 
-                    # Append to raw docs and rebuild index
                     st.session_state.ip_raw_docs[active_ip].extend(new_docs)
                     rebuild_vector_store(active_ip)
                     st.success(f"Successfully processed and added local files to `{active_ip}`!")
@@ -273,7 +285,7 @@ def render():
                                     full_text += text + "\n"
                                     new_docs.append(Document(
                                         page_content=text,
-                                        metadata={"source": pdf_url, "page": page_num + 1, "ip": active_ip, "type": "Remote PDF Spec"}
+                                        metadata={"source": pdf_url, "page": page_num + 1, "ip": active_ip, "group": active_group, "type": "Remote PDF Spec"}
                                     ))
                         
                         brief = full_text[:400].replace("\n", " ") + "..."
@@ -285,7 +297,7 @@ def render():
                         
                         st.session_state.ip_raw_docs[active_ip].extend(new_docs)
                         rebuild_vector_store(active_ip)
-                        st.success(f"Downloaded and indexed remote PDF successfully!")
+                        st.success("Downloaded and indexed remote PDF successfully!")
                         st.rerun()
             else:
                 st.warning("Please provide a valid PDF link.")
@@ -293,8 +305,8 @@ def render():
     # TAB 3: WEB & WIKIPEDIA
     with tab3:
         st.markdown("##### Ingest Online Documentation, Specs, or Wikipedia Protocols")
-        web_url = st.text_input("Vendor Documentation URL", placeholder="https://en.wikipedia.org/wiki/Advanced_eXtensible_Interface", key="web_input_new")
-        wiki_query = st.text_input("Wikipedia Topic Search", placeholder="e.g., Serial Peripheral Interface", key="wiki_input_new")
+        web_url = st.text_input("Vendor Documentation URL", placeholder="https://en.wikipedia.org/wiki/PCI_Express", key="web_input_new")
+        wiki_query = st.text_input("Wikipedia Topic Search", placeholder="e.g., PCI Express", key="wiki_input_new")
         
         if st.button("Ingest Web / Wikipedia Data", key="btn_web_ingest_new"):
             with st.spinner("Extracting content..."):
@@ -303,7 +315,7 @@ def render():
                     if page_text:
                         new_docs.append(Document(
                             page_content=page_text[:8000],
-                            metadata={"source": web_url.strip(), "page": 1, "ip": active_ip, "type": "Web Article"}
+                            metadata={"source": web_url.strip(), "page": 1, "ip": active_ip, "group": active_group, "type": "Web Article"}
                         ))
                         st.session_state.ip_file_registry[active_ip][web_url.strip()] = {
                             "type": "Web Article",
@@ -316,7 +328,7 @@ def render():
                         wiki_content = wikipedia.summary(wiki_query.strip(), sentences=12)
                         new_docs.append(Document(
                             page_content=wiki_content,
-                            metadata={"source": f"Wikipedia: {wiki_query.strip()}", "page": 1, "ip": active_ip, "type": "Wikipedia Entry"}
+                            metadata={"source": f"Wikipedia: {wiki_query.strip()}", "page": 1, "ip": active_ip, "group": active_group, "type": "Wikipedia Entry"}
                         ))
                         st.session_state.ip_file_registry[active_ip][f"Wikipedia: {wiki_query.strip()}"] = {
                             "type": "Wikipedia Entry",
@@ -335,7 +347,7 @@ def render():
     # TAB 4: ARXIV RESEARCH PAPERS
     with tab4:
         st.markdown("##### Query and Ingest ArXiv Hardware/ASIC Research Papers")
-        arxiv_query = st.text_input("Research Topic", placeholder="e.g., AXI Protocol Verification, RISC-V Branch Predictor", key="arxiv_input_new")
+        arxiv_query = st.text_input("Research Topic", placeholder="e.g., PCI Express protocol verification", key="arxiv_input_new")
         max_papers = st.slider("Number of Papers", min_value=1, max_value=5, value=2, key="arxiv_slider_new")
 
         if st.button("Fetch Academic Papers", key="btn_arxiv_fetch_new"):
@@ -347,7 +359,7 @@ def render():
                         source_label = f"ArXiv: {paper.title}"
                         new_docs.append(Document(
                             page_content=body,
-                            metadata={"source": source_label, "page": 1, "ip": active_ip, "type": "ArXiv Research Paper"}
+                            metadata={"source": source_label, "page": 1, "ip": active_ip, "group": active_group, "type": "ArXiv Research Paper"}
                         ))
                         st.session_state.ip_file_registry[active_ip][source_label] = {
                             "type": "ArXiv Research Paper",
@@ -361,3 +373,4 @@ def render():
                     st.rerun()
             else:
                 st.warning("Please provide a research query.")
+                
