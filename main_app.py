@@ -23,7 +23,8 @@ if "multi_chat_histories" not in st.session_state:
     st.session_state.multi_chat_histories = {}
 
 # Sidebar Navigation Header
-st.sidebar.title("⚡ PragyanAI Silicon RAG")
+st.sidebar.image("PragyanAI_Transperent.png")
+st.sidebar.title(" PragyanAI Silicon RAG")
 st.sidebar.caption("Hardware IP & Datasheet Engineering Suite")
 
 # Navigation Radio Menu
