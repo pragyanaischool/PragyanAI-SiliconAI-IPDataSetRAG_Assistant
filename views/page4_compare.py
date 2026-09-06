@@ -75,7 +75,7 @@ def ensure_spec_loaded(ip_name: str, group_name: str):
 
 def render():
     st.image("PragyanAI_Transperent.png")
-    st.title(" Cross-Spec & Version Comparison Engine")
+    st.title("⚖️ Cross-Spec & Version Comparison Engine")
     st.markdown("Select protocol groups and specific specification versions (backed by SQLite and FAISS) to perform side-by-side comparisons, analyze architecture evolution, and automatically list page-by-page change deltas.")
 
     # Synchronize group data from SQLite database
@@ -84,7 +84,7 @@ def render():
 
     ip_groups = st.session_state.ip_groups
     if not ip_groups:
-        st.warning("⚠️ At least one IP model or specification container is required. Please ingest data on **Ingestion & IP Management** first.")
+        st.warning("⚠️ At least one IP model or specification container is required. Please ingest data on **Page 1: Ingestion & IP Management** first.")
         return
 
     unique_groups = sorted(list(set(ip_groups.values())))
@@ -143,7 +143,7 @@ def render():
         placeholder="e.g., Signaling Rate, Max Payload Size, Link Training State Machine, or Register Offsets"
     )
 
-    # Unique button key
+    # Unique button key to trigger comparison and analysis
     if st.button("Generate Side-by-Side Comparison & Delta Audit", type="primary", key="btn_generate_comparison"):
         if not comparison_topic.strip():
             st.warning("💡 Please specify a comparison topic (e.g., 'Signaling Rate' or 'Register Offsets') above.")
@@ -200,7 +200,7 @@ Perform a rigorous, side-by-side comparative analysis between **{spec_a}** (Grou
             response = llm.invoke(comparison_prompt)
             
             st.markdown("---")
-            st.subheader(f" Comparative Analysis & Page Delta Audit: {spec_a} vs. {spec_b}")
+            st.subheader(f"📊 Comparative Analysis & Page Delta Audit: {spec_a} vs. {spec_b}")
             st.markdown(response.content)
 
             # Store references for audit on Page 3
