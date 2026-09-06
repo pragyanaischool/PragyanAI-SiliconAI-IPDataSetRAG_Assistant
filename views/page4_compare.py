@@ -1,29 +1,94 @@
 import streamlit as st
+import os
+import fitz  # PyMuPDF
+from docx import Document as DocxDocument
+from pptx import Presentation
+import pandas as pd
+from langchain_core.documents import Document
 from langchain_groq import ChatGroq
 from utils.database import db_get_all_groups_and_ips, db_get_file_registry
+from utils.vector_store import initialize_vector_persistence, rebuild_and_retain_vector_store
+
+def ensure_spec_loaded(ip_name: str, group_name: str):
+    """Ensures raw document chunks and FAISS CPU vector store exist in session state for an IP."""
+    initialize_vector_persistence()
+    
+    if "ip_raw_docs" not in st.session_state:
+        st.session_state.ip_raw_docs = {}
+        
+    if ip_name not in st.session_state.ip_raw_docs or not st.session_state.ip_raw_docs[ip_name]:
+        registry = db_get_file_registry(ip_name)
+        loaded_docs = []
+        for source_name, meta in registry.items():
+            local_path = os.path.join("temp_ip_data", source_name)
+            if not os.path.exists(local_path):
+                base_name = source_name.split("/")[-1].split("?")[0]
+                local_path = os.path.join("temp_ip_data", base_name)
+            
+            if os.path.exists(local_path):
+                doc_type = meta["type"]
+                try:
+                    if "PDF" in doc_type or local_path.lower().endswith(".pdf"):
+                        with fitz.open(local_path) as pdf:
+                            for p_idx, page in enumerate(pdf):
+                                text = page.get_text()
+                                if text.strip():
+                                    loaded_docs.append(Document(
+                                        page_content=text,
+                                        metadata={"source": source_name, "page": p_idx + 1, "ip": ip_name, "group": group_name, "type": doc_type}
+                                    ))
+                    elif "Word" in doc_type or local_path.lower().endswith(".docx"):
+                        doc_obj = DocxDocument(local_path)
+                        text = "\n".join([p.text for p in doc_obj.paragraphs if p.text.strip()])
+                        loaded_docs.append(Document(
+                            page_content=text,
+                            metadata={"source": source_name, "page": 1, "ip": ip_name, "group": group_name, "type": doc_type}
+                        ))
+                    elif "Presentation" in doc_type or local_path.lower().endswith(".pptx"):
+                        prs = Presentation(local_path)
+                        for s_idx, slide in enumerate(prs.slides):
+                            s_text = ""
+                            for shape in slide.shapes:
+                                if shape.has_text_frame:
+                                    for p in shape.text_frame.paragraphs:
+                                        s_text += p.text + "\n"
+                            if s_text.strip():
+                                loaded_docs.append(Document(
+                                    page_content=s_text,
+                                    metadata={"source": source_name, "page": s_idx + 1, "ip": ip_name, "group": group_name, "type": doc_type}
+                                ))
+                    else:
+                        with open(local_path, "r", encoding="utf-8", errors="ignore") as f:
+                            text = f.read()
+                        loaded_docs.append(Document(
+                            page_content=text,
+                            metadata={"source": source_name, "page": 1, "ip": ip_name, "group": group_name, "type": doc_type}
+                        ))
+                except Exception as e:
+                    print(f"Error loading cache for {source_name}: {e}")
+
+        st.session_state.ip_raw_docs[ip_name] = loaded_docs
+    
+    # Rebuild FAISS index if missing
+    if ip_name not in st.session_state.ip_databases and st.session_state.ip_raw_docs[ip_name]:
+        rebuild_and_retain_vector_store(ip_name)
 
 def render():
     st.image("PragyanAI_Transperent.png")
     st.title(" Cross-Spec & Version Comparison Engine")
     st.markdown("Select protocol groups and specific specification versions (backed by SQLite and FAISS) to perform side-by-side comparisons, analyze architecture evolution, and automatically list page-by-page change deltas.")
 
-    # Synchronize group data from session state or SQLite database
+    # Synchronize group data from SQLite database
     if "ip_groups" not in st.session_state or not st.session_state.ip_groups:
         st.session_state.ip_groups = db_get_all_groups_and_ips()
 
-    # Check if IP databases exist
-    if "ip_databases" not in st.session_state or len(st.session_state.ip_databases) < 1:
-        st.warning("⚠️ At least one IP model or specification container is required. Please ingest data on **Page 1: Ingestion & IP Management** first.")
+    ip_groups = st.session_state.ip_groups
+    if not ip_groups:
+        st.warning("⚠️ At least one IP model or specification container is required. Please ingest data on **Ingestion & IP Management** first.")
         return
 
-    ip_databases = st.session_state.ip_databases
-    ip_groups = st.session_state.get("ip_groups", {})
-    ip_raw_docs = st.session_state.get("ip_raw_docs", {})
-
-    available_ips = list(ip_databases.keys())
-
-    # Group Extraction
-    unique_groups = sorted(list(set(ip_groups.get(ip, "General") for ip in available_ips)))
+    unique_groups = sorted(list(set(ip_groups.values())))
+    all_ips = list(ip_groups.keys())
 
     st.markdown("---")
     st.subheader("1. Protocol Group & Spec Version Selection")
@@ -31,15 +96,23 @@ def render():
     col_g1, col_g2 = st.columns(2)
     with col_g1:
         group_a = st.selectbox("Select Baseline Group A", unique_groups, index=0, key="group_a_sel")
-        ips_in_group_a = [ip for ip in available_ips if ip_groups.get(ip, "General") == group_a]
+        ips_in_group_a = [ip for ip in all_ips if ip_groups.get(ip, "General") == group_a]
+        if not ips_in_group_a:
+            ips_in_group_a = all_ips
         spec_a = st.selectbox("Select Baseline Spec / Version A", ips_in_group_a, index=0, key="spec_a_sel")
 
     with col_g2:
         default_group_b_idx = min(1, len(unique_groups) - 1)
         group_b = st.selectbox("Select Target Group B", unique_groups, index=default_group_b_idx, key="group_b_sel")
-        ips_in_group_b = [ip for ip in available_ips if ip_groups.get(ip, "General") == group_b]
+        ips_in_group_b = [ip for ip in all_ips if ip_groups.get(ip, "General") == group_b]
+        if not ips_in_group_b:
+            ips_in_group_b = ips_in_group_a
         default_spec_b_idx = min(1, len(ips_in_group_b) - 1)
         spec_b = st.selectbox("Select Target Spec / Version B", ips_in_group_b, index=default_spec_b_idx, key="spec_b_sel")
+
+    # Automatically ensure raw docs and FAISS vector stores are loaded for both compared specs
+    ensure_spec_loaded(spec_a, group_a)
+    ensure_spec_loaded(spec_b, group_b)
 
     # Fetch document registry for both specs from SQLite database backend
     registry_a = db_get_file_registry(spec_a)
@@ -80,10 +153,14 @@ def render():
             st.warning("⚠️ Please select two different specifications or document versions for comparison.")
             return
 
+        if spec_a not in st.session_state.ip_databases or spec_b not in st.session_state.ip_databases:
+            st.error("⚠️ Vector database could not be initialized for one or both selected specs. Please ensure documents are uploaded on Page 1.")
+            return
+
         llm = ChatGroq(model=model_name, temperature=0.1, groq_api_key=groq_api_key)
 
         with st.spinner(f"Retrieving and aligning context between [{spec_a}] and [{spec_b}]..."):
-            # Retrieve chunks with optional document source filtering
+            ip_raw_docs = st.session_state.get("ip_raw_docs", {})
             docs_a = ip_raw_docs.get(spec_a, [])
             docs_b = ip_raw_docs.get(spec_b, [])
 
@@ -92,9 +169,8 @@ def render():
             if selected_source_b != "All Documents":
                 docs_b = [d for d in docs_b if d.metadata.get("source") == selected_source_b]
 
-            # Fallback to vector search if filtered doc lists are small or empty
-            db_a = ip_databases[spec_a]
-            db_b = ip_databases[spec_b]
+            db_a = st.session_state.ip_databases[spec_a]
+            db_b = st.session_state.ip_databases[spec_b]
             
             search_chunks_a = db_a.similarity_search(comparison_topic, k=4)
             search_chunks_b = db_b.similarity_search(comparison_topic, k=4)
