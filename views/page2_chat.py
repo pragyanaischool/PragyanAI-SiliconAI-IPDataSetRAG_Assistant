@@ -4,11 +4,9 @@ from langchain_groq import ChatGroq
 # Dictionary of UI Translations for Multi-Language Interface Support
 UI_TEXTS = {
     "English": {
-        "title": " Page 2: Expert Multi-IP Silicon RAG Assistant",
-        "subtitle": "Select IP models, customize extraction profiles, refine your questions, and query specifications in your preferred language.",
+        "title": "💬 Page 2: Expert Multi-IP Silicon RAG Assistant",
+        "subtitle": "Select IP models, customize extraction profiles, refine your questions, and query specifications using secure secrets.",
         "select_ip": "Active Target IP Core(s)",
-        "api_key": "Groq API Key",
-        "lang_label": "Interface & Response Language",
         "input_placeholder": "Ask technical questions regarding specifications, registers, or RTL code...",
         "refine_header": "🔍 AI Query Refinement & Validation",
         "refine_prompt": "Our AI architect has refined your query for maximum engineering precision. Is this what you are looking for? Edit if needed and submit:",
@@ -18,57 +16,49 @@ UI_TEXTS = {
         "citations": "📚 Referenced Citations:"
     },
     "Japanese (日本語)": {
-        "title": " ページ 2: エキスパートマルチIPシリコン RAG アシスタント",
-        "subtitle": "IPモデルを選択し、抽出プロファイルをカスタマイズし、質問を洗練させ、お好みの言語で仕様を照会します。",
+        "title": "💬 ページ 2: エキスパートマルチIPシリコン RAG アシスタント",
+        "subtitle": "IPモデルを選択し、質問を洗練させ、安全なシークレットを使用して仕様を照会します。",
         "select_ip": "アクティブな対象IPコア",
-        "api_key": "Groq APIキー",
-        "lang_label": "インターフェースと応答の言語",
         "input_placeholder": "仕様、レジスタ、またはRTLコードに関する技術的な質問をしてください...",
         "refine_header": "🔍 AIクエリの洗練と検証",
-        "refine_prompt": "AIアーキテクトがエンジニアリング精度を高めるためにクエリを洗練させました。お探しの内容ですか？必要に応じて編集して送信してください：",
+        "refine_prompt": "AIアーキテクトがクエリを洗練させました。お探しの内容ですか？",
         "submit_refined": "🚀 確認してクエリを実行",
         "kg_header": "🕸️ 動的IP知識グラフ",
-        "kg_caption": "取得したコンテキストから抽出されたリレーションシップエンティティとプロトコル階層の視覚化：",
+        "kg_caption": "抽出されたリレーションシップとプロトコル階層の視覚化：",
         "citations": "📚 参照された引用:"
     },
     "German (Deutsch)": {
-        "title": " Seite 2: Experten Multi-IP Silicon RAG Assistent",
-        "subtitle": "Wählen Sie IP-Modelle aus, passen Sie Extraktionsprofile an, verfeinern Sie Fragen und fragen Sie Spezifikationen ab.",
+        "title": "💬 Seite 2: Experten Multi-IP Silicon RAG Assistent",
+        "subtitle": "Wählen Sie IP-Modelle aus und fragen Sie Spezifikationen mit sicheren Geheimnissen ab.",
         "select_ip": "Aktive Ziel-IP-Kerne",
-        "api_key": "Groq API-Schlüssel",
-        "lang_label": "Schnittstellen- und Antwortsprache",
         "input_placeholder": "Stellen Sie technische Fragen zu Spezifikationen, Registern oder RTL-Code...",
         "refine_header": "🔍 KI-Abfrageverfeinerung & Validierung",
-        "refine_prompt": "Unsere KI hat Ihre Anfrage verfeinert. Ist das wonach Sie suchen? Bei Bedarf bearbeiten und absenden:",
+        "refine_prompt": "Unsere KI hat Ihre Anfrage verfeinert. Ist das wonach Sie suchen?",
         "submit_refined": "🚀 Bestätigen & Ausführen",
         "kg_header": "🕸️ Dynamischer IP-Wissensgraph",
-        "kg_caption": "Visualisierung von Entitäten und Protokollhierarchien aus dem abgerufenen Kontext:",
+        "kg_caption": "Visualisierung von Entitäten und Protokollhierarchien:",
         "citations": "📚 Zitierte Quellen:"
     },
     "Mandarin (中文)": {
-        "title": " 页面 2: 专家多 IP 芯片 RAG 助手",
-        "subtitle": "选择 IP 模型、自定义提取配置文件、精炼您的问题，并以您首选的语言查询。",
+        "title": "💬 页面 2: 专家多 IP 芯片 RAG 助手",
+        "subtitle": "选择 IP 模型、精炼您的问题，并使用安全的凭证查询规格说明。",
         "select_ip": "活动目标 IP 核心",
-        "api_key": "Groq API 密钥",
-        "lang_label": "界面与响应语言",
         "input_placeholder": "询问关于规格、寄存器或 RTL 代码的技术问题...",
         "refine_header": "🔍 AI 问题精炼与验证",
-        "refine_prompt": "我们的 AI 架构师已优化了您的提问。这是您要找的内容吗？如有需要可进行编辑并提交：",
+        "refine_prompt": "这是您要找的内容吗？如有需要可进行编辑并提交：",
         "submit_refined": "🚀 确认并执行查询",
         "kg_header": "🕸️ 动态 IP 知识图谱",
-        "kg_caption": "可视化从检索到的上下文中提取的实体关系与协议层次结构：",
+        "kg_caption": "可视化从检索到的上下文中提取的实体关系：",
         "citations": "📚 参考引用:"
     }
 }
 
 def render():
-    # Multi-Language Selection in Sidebar
-    selected_lang = st.sidebar.selectbox(" Select Language / 言語 / Sprache", list(UI_TEXTS.keys()), index=0)
+    selected_lang = st.sidebar.selectbox("🌐 Select Language / 言語 / Sprache", list(UI_TEXTS.keys()), index=0)
     t = UI_TEXTS.get(selected_lang, UI_TEXTS["English"])
 
-    # Custom Extraction Studio Sidebar Controls
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### Custom Extraction Studio")
+    st.sidebar.markdown("### 🎛️ Custom Extraction Studio")
     custom_extraction_mode = st.sidebar.selectbox(
         "Extraction Profile", 
         ["Standard Silicon Architect", "Register Map (JSON/Table)", "UVM Testbench Generator", "Timing & Clock Domain Constraints", "Custom Instructions"]
@@ -78,7 +68,7 @@ def render():
     if custom_extraction_mode == "Custom Instructions":
         user_custom_rule = st.sidebar.text_area(
             "Add-on Extraction Rule", 
-            placeholder="e.g., Always output register offsets in hexadecimal and include C header definitions."
+            placeholder="e.g., Always output register offsets in hexadecimal."
         )
 
     profile_instructions = {
@@ -90,7 +80,6 @@ def render():
     }
     active_profile_instruction = profile_instructions.get(custom_extraction_mode, "")
 
-    st.image("PragyanAI_Transperent.png")
     st.title(t["title"])
     st.markdown(t["subtitle"])
 
@@ -99,18 +88,26 @@ def render():
         return
 
     available_ips = list(st.session_state.ip_databases.keys())
+    selected_ips = st.multiselect(t["select_ip"], available_ips, default=[available_ips[0]] if available_ips else [])
 
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        selected_ips = st.multiselect(t["select_ip"], available_ips, default=[available_ips[0]] if available_ips else [])
-    with col2:
-        groq_api_key = st.text_input(t["api_key"], type="password", help="Sign up at console.groq.com")
-
-    if not selected_ips or not groq_api_key:
-        st.info("💡 Please select at least one IP model and enter your Groq API key to begin.")
+    if not selected_ips:
+        st.info("💡 Please select at least one IP model to begin.")
         return
 
-    llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.1, groq_api_key=groq_api_key)
+    # Safely load Groq credentials and model name from st.secrets
+    try:
+        groq_api_key = st.secrets["GROQ_API_KEY"]
+        model_name = st.secrets.get("MODEL_NAME", "llama-3.3-70b-versatile")
+    except Exception:
+        st.error("⚠️ `GROQ_API_KEY` or `MODEL_NAME` not found in `st.secrets`. Please configure your `.streamlit/secrets.toml` file.")
+        return
+
+    # Initialize ChatGroq using secrets
+    llm = ChatGroq(
+        model=model_name,
+        temperature=0.1,
+        groq_api_key=groq_api_key
+    )
 
     session_key = "_".join(sorted(selected_ips))
     if "multi_chat_histories" not in st.session_state:
@@ -165,7 +162,7 @@ def execute_rag_query(query: str, selected_ips: list, llm, chat_history: list, l
     with st.chat_message("user"):
         st.markdown(query)
 
-    with st.spinner("Executing multi-IP retrieval, applying custom extraction rules, and synthesizing response..."):
+    with st.spinner("Executing multi-IP retrieval and synthesizing response..."):
         retrieved_chunks = []
         for ip in selected_ips:
             vector_db = st.session_state.ip_databases[ip]
@@ -187,7 +184,6 @@ def execute_rag_query(query: str, selected_ips: list, llm, chat_history: list, l
             context_text += chunk.page_content[:1500] + "\n"
             citations_list.append(f"- **[{ip_label}]** `{src_name}` ({doc_type}, Page: {page_idx})")
 
-        # Generate Dynamic Knowledge Graph in Mermaid format
         kg_prompt = f"""Based on the following hardware context, extract key entities (IP blocks, signals, registers, protocols) and their directional relationships. Generate a valid Mermaid.js graph string (using graph TD format) representing these connections. Return ONLY the mermaid code block syntax starting with graph TD:
         
         Context:
@@ -196,7 +192,6 @@ def execute_rag_query(query: str, selected_ips: list, llm, chat_history: list, l
         kg_res = llm.invoke(kg_prompt)
         mermaid_code = kg_res.content.replace("```mermaid", "").replace("```", "").strip()
 
-        # Expert System Prompt with Active Custom Extraction Directive & Language Localization
         system_prompt = f"""You are a Principal Silicon Architect and Senior RTL Verification Specialist. 
 Respond entirely in the requested interface language: **{lang}**.
 
