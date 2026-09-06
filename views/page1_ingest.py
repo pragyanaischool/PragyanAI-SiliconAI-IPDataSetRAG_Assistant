@@ -52,7 +52,8 @@ def rebuild_vector_store(ip_name: str):
             del st.session_state.ip_databases[ip_name]
 
 def render():
-    st.title("📂 Page 1: IP Core & Knowledge Base Management")
+    st.image("PragyanAI_Transperent.png")
+    st.title(" Page 1: IP Core & Knowledge Base Management")
     st.markdown("Register semiconductor IP cores, manage added documents, view brief metrics (page counts, key topics), add new sources, or remove obsolete files.")
 
     # Global State Initializations for Raw Document Persistence & Management
@@ -86,13 +87,13 @@ def render():
         return
 
     active_ip = st.session_state.current_ip
-    st.markdown(f"### ⚙️ Managing Knowledge Base for: `{active_ip}`")
+    st.markdown(f"###  Managing Knowledge Base for: `{active_ip}`")
 
     # ==========================================
     # SECTION 2: VIEW ADDED DOCUMENTS & BRIEFS
     # ==========================================
     st.markdown("---")
-    st.subheader("📋 Document Database & Brief Overview")
+    st.subheader(" Document Database & Brief Overview")
     
     registry = st.session_state.ip_file_registry.get(active_ip, {})
     
@@ -100,7 +101,7 @@ def render():
         st.write(f"Total active documents/sources indexed: **{len(registry)}**")
         
         for source_name, meta in list(registry.items()):
-            with st.expander(f"📄 [{meta['type']}] {source_name} — ({meta['pages']} pages/segments)"):
+            with st.expander(f" [{meta['type']}] {source_name} — ({meta['pages']} pages/segments)"):
                 col_a, col_b = st.columns(2)
                 with col_a:
                     st.write(f"**Document Type:** `{meta['type']}`")
@@ -112,7 +113,7 @@ def render():
                 st.info(meta['brief'])
 
                 # Option to remove specific document
-                if st.button(f"🗑️ Remove Document: {source_name}", key=f"del_{active_ip}_{source_name}"):
+                if st.button(f" Remove Document: {source_name}", key=f"del_{active_ip}_{source_name}"):
                     # Remove from raw docs list
                     st.session_state.ip_raw_docs[active_ip] = [
                         doc for doc in st.session_state.ip_raw_docs[active_ip] 
@@ -134,10 +135,10 @@ def render():
     st.subheader("➕ Add New Files & Knowledge Sources")
 
     tab1, tab2, tab3, tab4 = st.tabs([
-        "📁 Local Files (PDF / DOCX / PPT / XLSX / RTL)",
-        "🔗 Direct PDF URL Link",
-        "🌐 Web Links & Wikipedia",
-        "📚 ArXiv Research Papers"
+        "1. Local Files (PDF / DOCX / PPT / XLSX / RTL)",
+        "2. Direct PDF URL Link",
+        "3. Web Links & Wikipedia",
+        "4. ArXiv Research Papers"
     ])
 
     new_docs = []
