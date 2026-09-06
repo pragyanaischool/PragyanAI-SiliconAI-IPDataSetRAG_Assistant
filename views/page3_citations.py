@@ -25,7 +25,7 @@ def render():
         st.metric("Referenced IP Models", unique_ips)
 
     st.markdown("---")
-    st.subheader("🔍 Context Node Inspection & Audit")
+    st.subheader(" Context Node Inspection & Audit")
 
     # Detailed inspection expanders for each reference chunk
     for idx, doc in enumerate(references):
