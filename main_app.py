@@ -1,5 +1,5 @@
 import streamlit as st
-from views import page1_ingest, page2_chat, page3_citations
+from views import page1_ingest, page2_chat, page3_citations, page4_compare
 
 # Page Configuration
 st.set_page_config(
@@ -13,8 +13,17 @@ st.set_page_config(
 if "ip_databases" not in st.session_state:
     st.session_state.ip_databases = {}  # Format: {ip_name: FAISS_vector_store}
 
+if "ip_groups" not in st.session_state:
+    st.session_state.ip_groups = {}     # Format: {ip_name: group_name}
+
+if "ip_raw_docs" not in st.session_state:
+    st.session_state.ip_raw_docs = {}   # Format: {ip_name: [Document, ...]}
+
+if "ip_file_registry" not in st.session_state:
+    st.session_state.ip_file_registry = {}  # Format: {ip_name: {source_name: {type, pages, brief}}}
+
 if "ip_metadata" not in st.session_state:
-    st.session_state.ip_metadata = {}   # Format: {ip_name: [list_of_sources]}
+    st.session_state.ip_metadata = {}   # Legacy support metadata container
 
 if "last_references" not in st.session_state:
     st.session_state.last_references = []
@@ -24,27 +33,37 @@ if "multi_chat_histories" not in st.session_state:
 
 # Sidebar Navigation Header
 st.sidebar.image("PragyanAI_Transperent.png")
-st.sidebar.title(" PragyanAI Silicon RAG")
+st.sidebar.title("PragyanAI Silicon RAG")
 st.sidebar.caption("Hardware IP & Datasheet Engineering Suite")
 
-# Navigation Radio Menu
+# Navigation Radio Menu (Including Page 4: Spec & Version Comparison)
 page_selection = st.sidebar.radio(
     "Navigation Menu",
     [
         "Page 1: Ingestion & IP Management",
         "Page 2: Interactive IP RAG Chat",
-        "Page 3: References & Citation Dashboard"
+        "Page 3: References & Citation Dashboard",
+        "Page 4: Spec & Version Comparison"
     ]
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📊 Registered IP Stores")
+st.sidebar.markdown("### 📊 Registered IP Families")
 
-# Render active IP status in sidebar
+# Render active IP status grouped by Family in the sidebar
 if st.session_state.ip_databases:
+    grouped_ips = {}
     for ip_name in st.session_state.ip_databases.keys():
-        source_count = len(st.session_state.ip_metadata.get(ip_name, []))
-        st.sidebar.write(f"- **{ip_name}**: `{source_count}` source(s)")
+        g_name = st.session_state.ip_groups.get(ip_name, "General")
+        if g_name not in grouped_ips:
+            grouped_ips[g_name] = []
+        grouped_ips[g_name].append(ip_name)
+
+    for group, ips in grouped_ips.items():
+        st.sidebar.markdown(f"**📂 {group}**")
+        for ip in ips:
+            doc_count = len(st.session_state.ip_file_registry.get(ip, {}))
+            st.sidebar.write(f"&nbsp;&nbsp;&nbsp;&nbsp;• {ip} (`{doc_count} docs`)")
 else:
     st.sidebar.caption("No IP models registered yet. Go to Page 1 to start.")
 
@@ -55,3 +74,5 @@ elif page_selection == "Page 2: Interactive IP RAG Chat":
     page2_chat.render()
 elif page_selection == "Page 3: References & Citation Dashboard":
     page3_citations.render()
+elif page_selection == "Page 4: Spec & Version Comparison":
+    page4_compare.render()
