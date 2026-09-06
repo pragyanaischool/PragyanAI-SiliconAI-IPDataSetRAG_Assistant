@@ -1,106 +1,134 @@
 import streamlit as st
 from langchain_groq import ChatGroq
-from langchain.chains import ConversationalRetrievalChain
 
 def render():
-    st.title("💬 Page 2: Interactive IP & Verilog RAG Assistant")
-    st.markdown("Select a target semiconductor IP core model, input your Groq API key, and query specifications, registers, or generated HDL blocks with context-aware retrieval.")
+    st.title("💬 Page 2: Expert Multi-IP Silicon RAG Assistant")
+    st.markdown("Select **one or multiple semiconductor IP models** to query specifications, compare interconnects, analyze register maps, and generate synthesis-ready Verilog/VHDL code.")
 
-    # Check if any IP dataset containers have been created on Page 1
+    # Verify IP availability
     if "ip_databases" not in st.session_state or not st.session_state.ip_databases:
-        st.warning("⚠️ No IP knowledge bases found. Please go to **Page 1 (Ingestion & IP Management)** first to register an IP model and ingest documentation sources.")
+        st.warning("⚠️ No IP models found. Navigate to **Page 1: Ingestion & IP Management** to register an IP and upload datasheets first.")
         return
 
-    # Sidebar or top selector for IP model selection
     available_ips = list(st.session_state.ip_databases.keys())
-    
+
     col1, col2 = st.columns([2, 1])
     with col1:
-        selected_ip = st.selectbox("Select Active IP Model / Dataset Container", available_ips)
+        selected_ips = st.multiselect(
+            "Active Target IP Core(s)",
+            available_ips,
+            default=[available_ips[0]] if available_ips else []
+        )
     with col2:
-        st.markdown(f"**Loaded Sources:** `{len(st.session_state.ip_metadata.get(selected_ip, []))}` files/links")
+        groq_api_key = st.text_input("Groq API Key", type="password", help="Sign up at console.groq.com")
 
-    # Groq API Key Configuration
-    groq_api_key = st.text_input("Enter Groq API Key", type="password", help="Get a free key from console.groq.com")
+    if not selected_ips:
+        st.info("Select at least one IP model to chat.")
+        return
 
-    if groq_api_key and selected_ip:
-        # Retrieve the vector database for the selected IP model
-        vector_store = st.session_state.ip_databases[selected_ip]
-        retriever = vector_store.as_retriever(search_kwargs={"k": 4})
+    if not groq_api_key:
+        st.info("💡 Enter your Groq API key to initialize the Llama-3.3 hardware reasoning model.")
+        return
 
-        # Initialize Groq LLM & Conversational Retrieval Chain
-        llm = ChatGroq(
-            model="llama-3.3-70b-versatile", 
-            temperature=0.1, 
-            groq_api_key=groq_api_key
-        )
-        
-        qa_chain = ConversationalRetrievalChain.from_llm(
-            llm=llm, 
-            retriever=retriever, 
-            return_source_documents=True
-        )
+    # Initialize ChatGroq LLM
+    llm = ChatGroq(
+        model="llama-3.3-70b-versatile",
+        temperature=0.1,
+        groq_api_key=groq_api_key
+    )
 
-        # Initialize session chat history specifically indexed per IP model if needed
-        if "chat_histories" not in st.session_state:
-            st.session_state.chat_histories = {}
-        if selected_ip not in st.session_state.chat_histories:
-            st.session_state.chat_histories[selected_ip] = []
+    # Unique conversation state key per selection combination
+    session_key = "_".join(sorted(selected_ips))
+    if session_key not in st.session_state.multi_chat_histories:
+        st.session_state.multi_chat_histories[session_key] = []
 
-        current_history = st.session_state.chat_histories[selected_ip]
+    chat_history = st.session_state.multi_chat_histories[session_key]
 
-        # Display historical messages for the selected IP
-        for message in current_history:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+    # Render Chat History
+    for msg in chat_history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-        # Chat Input Bar
-        user_query = st.chat_input(f"Ask questions about specs, register layouts, or Verilog code for {selected_ip}...")
+    # Chat Input Bar
+    user_query = st.chat_input(f"Ask technical questions regarding: {', '.join(selected_ips)}...")
 
-        if user_query:
-            # Append user message
-            current_history.append({"role": "user", "content": user_query})
-            with st.chat_message("user"):
-                st.markdown(user_query)
+    if user_query:
+        chat_history.append({"role": "user", "content": user_query})
+        with st.chat_message("user"):
+            st.markdown(user_query)
 
-            with st.spinner(f"Synthesizing answer using {selected_ip} context..."):
-                # Format past chat history into tuples expected by LangChain (if any)
-                langchain_history = []
-                for i in range(0, len(current_history) - 1, 2):
-                    if i + 1 < len(current_history):
-                        langchain_history.append((current_history[i]["content"], current_history[i+1]["content"]))
+        with st.spinner("Searching IP vector databases and reasoning through hardware logic..."):
+            # Multi-IP Vector Retrieval
+            retrieved_chunks = []
+            for ip in selected_ips:
+                vector_db = st.session_state.ip_databases[ip]
+                # Pull top 3 matches per selected IP
+                hits = vector_db.similarity_search(user_query, k=3)
+                retrieved_chunks.extend(hits)
 
-                # Execute RAG chain invocation
-                response = qa_chain({
-                    "question": user_query, 
-                    "chat_history": langchain_history
-                })
-                
-                answer = response["answer"]
-                source_docs = response["source_documents"]
+            # Save global audit reference for Page 3
+            st.session_state.last_references = retrieved_chunks
 
-                # Save source documents globally so Page 3 can render precise reference links and citations
-                st.session_state.last_references = source_docs
+            # Construct Grounding Context & Source Citations
+            context_text = ""
+            citations_list = []
+            for idx, chunk in enumerate(retrieved_chunks):
+                meta = chunk.metadata
+                ip_label = meta.get("ip", "General")
+                src_name = meta.get("source", "Unknown")
+                doc_type = meta.get("type", "Spec")
+                page_idx = meta.get("page", 1)
 
-                # Format inline source summary for the chat response
-                citations_summary = []
-                for doc in source_docs:
-                    meta = doc.metadata
-                    source_name = meta.get("source", "Unknown Source")
-                    doc_type = meta.get("type", "Document")
-                    page_num = meta.get("page", 1)
-                    citations_summary.append(f"- **{source_name}** ({doc_type}, Page/Slide: {page_num})")
+                context_text += f"\n--- Reference [{idx+1}] | IP: {ip_label} | Source: {src_name} | Page/Slide: {page_idx} | Type: {doc_type} ---\n"
+                context_text += chunk.page_content[:1800] + "\n"
 
-                unique_citations = list(set(citations_summary))
-                
-                final_output = answer
+                citations_list.append(f"- **[{ip_label}]** `{src_name}` ({doc_type}, Page/Slide: {page_idx})")
+
+            # Senior Silicon Architect System Prompt
+            system_prompt = f"""You are a Principal Silicon Architect and Senior RTL Verification Specialist with over 25 years of industry experience in ASIC/SoC architectures, embedded protocols (AMBA AXI/AHB/APB, PCIe, SPI, I2C, UART), and CPU cores (RISC-V, ARM).
+
+Analyze the user's inquiry with professional rigor and respond using the following standards:
+1. **Architectural Rigor:** Explain low-level hardware mechanisms clearly (e.g., backpressure via VALID/READY handshakes, pipeline hazards, clock domain crossing (CDC) synchronization, synchronous vs asynchronous resets).
+2. **Synthesis-Ready RTL:** When generating Verilog or VHDL, adhere strictly to industry synthesis guidelines:
+   - Separate combinational and sequential blocks cleanly.
+   - Use non-blocking (`<=`) assignments for sequential registers, blocking (`=`) for combinational logic.
+   - Ensure complete case coverage or assign default values to eliminate unwanted latches.
+   - Provide explicit port direction, bit-width declarations, and active-low/active-high reset conventions.
+3. **Register Bit-Fields:** If detailing register maps, present them in clear Markdown tables indicating Offset, Bit Range, Name, Type (R/W, RO, W1C), and Functional Description.
+4. **Cross-IP Integration:** If multiple IPs are referenced, clarify protocol adaptation, bus arbitration, or bridge logic required between them.
+5. **Contextual Grounding:** Prioritize information from the retrieved context below. If critical parameters are unspecified in the context, clearly highlight your engineering assumptions.
+
+=== RETRIEVED HARDWARE CONTEXT ===
+{context_text}
+==================================
+"""
+
+            # Message Payload with Conversational Continuity
+            messages = [("system", system_prompt)]
+            
+            # Append prior turns (last 6 messages max to stay concise)
+            for prev_turn in chat_history[-7:-1]:
+                if prev_turn["role"] == "user":
+                    messages.append(("human", prev_turn["content"]))
+                else:
+                    messages.append(("ai", prev_turn["content"]))
+            
+            messages.append(("human", user_query))
+
+            # Model Inference via Groq
+            try:
+                response = llm.invoke(messages)
+                answer = response.content
+
+                # Append Citation Summary
+                unique_citations = list(set(citations_list))
                 if unique_citations:
-                    final_output += "\n\n__Quick Sources Referenced:__\n" + "\n".join(unique_citations[:3])
-                    final_output += f"\n\n*(Tip: Go to **Page 3: References & Citations** to examine full text snippets and complete metadata trace)*"
+                    answer += "\n\n---\n**📚 Referenced Citations:**\n" + "\n".join(unique_citations[:5])
+                    answer += "\n\n*(Inspect full text segments and code snippets on **Page 3: References & Citation Dashboard**)*"
 
-                # Append assistant response
-                current_history.append({"role": "assistant", "content": final_output})
+                chat_history.append({"role": "assistant", "content": answer})
                 with st.chat_message("assistant"):
-                    st.markdown(final_output)
-    else:
-        st.info("💡 Please provide your Groq API key above to initialize the LLM chat engine for the selected IP model.")
+                    st.markdown(answer)
+
+            except Exception as e:
+                st.error(f"Error during LLM invocation: {e}")
