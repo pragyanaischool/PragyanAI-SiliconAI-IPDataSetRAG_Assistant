@@ -2,7 +2,7 @@ import streamlit as st
 
 def render():
     st.image("PragyanAI_Transperent.png")
-    st.title(" Page 3: Reference Materials & Citation Dashboard")
+    st.title("Reference Materials & Citation Dashboard")
     st.markdown("Audit the exact knowledge chunks, page indices, register tables, and RTL code snippets surfaced during the latest chat query across your semiconductor IP databases.")
 
     # Check if reference data exists in session state from Page 2
