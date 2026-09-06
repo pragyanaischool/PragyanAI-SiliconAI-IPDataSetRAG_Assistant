@@ -53,7 +53,7 @@ def rebuild_vector_store(ip_name: str):
 
 def render():
     st.image("PragyanAI_Transperent.png")
-    st.title("Page 1: IP Core & Knowledge Base Management")
+    st.title("IP Core & Knowledge Base Management")
     st.markdown("Register semiconductor IP cores categorized by protocol families/groups, manage added documents, view brief metrics (page counts, key topics), add new sources, or remove obsolete files.")
 
     # Global State Initializations for Raw Document Persistence & Management
